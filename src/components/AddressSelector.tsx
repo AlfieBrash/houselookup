@@ -44,7 +44,12 @@ export function AddressSelector({ postcode, addresses, onSelect, error }: Addres
           <span>Addresses at {postcode}</span>
         </div>
         <div className="text-center py-8">
-          <p className="text-muted-foreground">No addresses found at this postcode</p>
+          <p className="text-muted-foreground">
+            Address lookup requires an OS Places API key.
+          </p>
+          <p className="text-sm text-muted-foreground/70 mt-2">
+            Contact us to enable full address lookup functionality.
+          </p>
         </div>
         {error && <div className="error-inline fade-in">{error}</div>}
       </div>

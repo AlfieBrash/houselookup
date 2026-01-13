@@ -4,46 +4,7 @@ import { PostcodeInput } from "@/components/PostcodeInput";
 import { PostcodeDetails, PostcodeData } from "@/components/PostcodeDetails";
 import { AddressSelector, Address } from "@/components/AddressSelector";
 import { SelectedAddress } from "@/components/SelectedAddress";
-
-// Mock data for demonstration
-const mockPostcodeData: PostcodeData = {
-  postcode: "EX1 1GN",
-  adminDistrict: "Exeter",
-  region: "South West",
-  country: "England",
-  constituency: "Exeter",
-  latitude: 50.725,
-  longitude: -3.527,
-};
-
-const mockAddresses: Address[] = [
-  {
-    uprn: "100040214823",
-    line1: "1 Cathedral Close",
-    town: "Exeter",
-    postcode: "EX1 1GN",
-  },
-  {
-    uprn: "100040214824",
-    line1: "2 Cathedral Close",
-    line2: "Flat A",
-    town: "Exeter",
-    postcode: "EX1 1GN",
-  },
-  {
-    uprn: "100040214825",
-    line1: "3 Cathedral Close",
-    town: "Exeter",
-    postcode: "EX1 1GN",
-  },
-  {
-    uprn: "100040214826",
-    line1: "4 Cathedral Close",
-    line2: "Ground Floor",
-    town: "Exeter",
-    postcode: "EX1 1GN",
-  },
-];
+import { lookupPostcode } from "@/lib/postcodes-api";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -61,41 +22,28 @@ const Index = () => {
     setSelectedAddress(null);
     setCurrentPostcode(postcode);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      // Call real postcodes.io API
+      const result = await lookupPostcode(postcode);
 
-    // Mock validation - reject some postcodes for demo
-    if (postcode.toUpperCase().startsWith("ZZ")) {
-      setPostcodeError("Invalid postcode. Please check and try again.");
-      setIsLoading(false);
-      return;
-    }
+      setPostcodeData({
+        postcode: result.postcode,
+        adminDistrict: result.admin_district || "Unknown",
+        region: result.region || "Unknown",
+        country: result.country,
+        constituency: result.parliamentary_constituency || "Unknown",
+        latitude: result.latitude,
+        longitude: result.longitude,
+      });
 
-    // Normalise the postcode for display
-    const normalised = postcode.replace(/\s+/g, "").toUpperCase();
-    const formattedPostcode = `${normalised.slice(0, -3)} ${normalised.slice(-3)}`;
-
-    setPostcodeData({
-      ...mockPostcodeData,
-      postcode: formattedPostcode,
-    });
-
-    // Simulate fetching addresses
-    await new Promise((resolve) => setTimeout(resolve, 400));
-
-    // For demo, show empty state for certain postcodes
-    if (postcode.toUpperCase().startsWith("XX")) {
+      // Note: OS Places API would be used here for address lookup
+      // For now, show a message that address lookup requires API key
       setAddresses([]);
-    } else {
-      setAddresses(
-        mockAddresses.map((addr) => ({
-          ...addr,
-          postcode: formattedPostcode,
-        }))
-      );
+    } catch (error) {
+      setPostcodeError(error instanceof Error ? error.message : "Failed to lookup postcode");
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   const handleAddressSelect = (address: Address) => {
