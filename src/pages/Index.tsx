@@ -5,6 +5,7 @@ import { PostcodeDetails, PostcodeData } from "@/components/PostcodeDetails";
 import { AddressSelector, Address } from "@/components/AddressSelector";
 import { SelectedAddress } from "@/components/SelectedAddress";
 import { lookupPostcode } from "@/lib/postcodes-api";
+import { lookupAddressesByPostcode } from "@/lib/os-places";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -13,6 +14,7 @@ const Index = () => {
   const [addresses, setAddresses] = useState<Address[] | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [currentPostcode, setCurrentPostcode] = useState<string>("");
+  const [addressError, setAddressError] = useState<string | null>(null);
 
   const handlePostcodeSearch = async (postcode: string) => {
     setIsLoading(true);
@@ -21,6 +23,7 @@ const Index = () => {
     setAddresses(null);
     setSelectedAddress(null);
     setCurrentPostcode(postcode);
+    setAddressError(null);
 
     try {
       // Call real postcodes.io API
@@ -36,9 +39,15 @@ const Index = () => {
         longitude: result.longitude,
       });
 
-      // Note: OS Places API would be used here for address lookup
-      // For now, show a message that address lookup requires API key
-      setAddresses([]);
+      try {
+        const addressResults = await lookupAddressesByPostcode(postcode);
+        setAddresses(addressResults);
+      } catch (error) {
+        setAddressError(
+          error instanceof Error ? error.message : "Failed to lookup addresses"
+        );
+        setAddresses([]);
+      }
     } catch (error) {
       setPostcodeError(error instanceof Error ? error.message : "Failed to lookup postcode");
     } finally {
@@ -107,6 +116,7 @@ const Index = () => {
               postcode={currentPostcode}
               addresses={addresses}
               onSelect={handleAddressSelect}
+              error={addressError}
             />
           )}
 
