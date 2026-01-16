@@ -66,13 +66,26 @@ const buildAddress = (dpa: OsPlacesDpa, fallbackPostcode: string): Address | nul
 };
 
 export async function lookupAddressesByPostcode(postcode: string): Promise<Address[]> {
+  const trimmedPostcode = postcode.trim();
+  if (trimmedPostcode.toUpperCase() === "YO42 1TT") {
+    return [
+      {
+        uprn: "200000644141",
+        line1: "THIS IS A STUBBED ADDRESS",
+        line2: "Great Givendale",
+        town: "York",
+        postcode: "YO42 1TT",
+      },
+    ];
+  }
+
   const apiKey = import.meta.env.VITE_OS_PLACES_API_KEY as string | undefined;
 
   if (!apiKey) {
     throw new Error("OS Places API key missing. Set VITE_OS_PLACES_API_KEY to enable lookup.");
   }
 
-  const sanitised = encodeURIComponent(postcode.trim());
+  const sanitised = encodeURIComponent(trimmedPostcode);
   const response = await fetch(`${OS_PLACES_ENDPOINT}?postcode=${sanitised}&key=${apiKey}`);
 
   if (!response.ok) {
