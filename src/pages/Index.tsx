@@ -6,6 +6,7 @@ import { AddressSelector, Address } from "@/components/AddressSelector";
 import { SelectedAddress } from "@/components/SelectedAddress";
 import { lookupPostcode } from "@/lib/postcodes-api";
 import { lookupAddressesByPostcode } from "@/lib/os-places";
+import { fetchEpcByUprn } from "@/lib/epc-api";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -60,26 +61,15 @@ const Index = () => {
   };
 
   const handleDownloadEPC = async () => {
-    // Simulate EPC download
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-
-    // Simulate occasional failure for demo
-    if (Math.random() < 0.2) {
-      throw new Error("EPC not available for this property");
+    if (!selectedAddress) {
+      throw new Error("No address selected");
     }
 
-    // Create and download mock EPC JSON
-    const epcData = {
-      address: selectedAddress,
-      epcRating: "C",
-      currentEnergyEfficiency: 72,
-      potentialEnergyEfficiency: 85,
-      propertyType: "Semi-detached house",
-      builtForm: "Semi-Detached",
-      totalFloorArea: 95,
-      mainFuel: "Natural Gas",
-      lodgementDate: "2023-06-15",
-    };
+    const epcData = await fetchEpcByUprn(selectedAddress.uprn);
+
+    if (!epcData) {
+      throw new Error("No EPC found for this property");
+    }
 
     const blob = new Blob([JSON.stringify(epcData, null, 2)], {
       type: "application/json",
@@ -87,7 +77,7 @@ const Index = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `epc-${selectedAddress?.uprn}.json`;
+    a.download = `epc-${selectedAddress.uprn}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
