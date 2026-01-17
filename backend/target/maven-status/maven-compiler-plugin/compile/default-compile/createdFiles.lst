@@ -1,0 +1,8 @@
+com\houselookup\backend\service\EpcService$1.class
+com\houselookup\backend\controller\EpcController.class
+com\houselookup\backend\controller\AddressController.class
+com\houselookup\backend\service\EpcService.class
+com\houselookup\backend\config\WebConfig.class
+com\houselookup\backend\HouseLookupBackendApplication.class
+com\houselookup\backend\model\Address.class
+com\houselookup\backend\service\OsPlacesService.class
