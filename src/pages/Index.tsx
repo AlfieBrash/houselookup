@@ -3,10 +3,10 @@ import { AppHeader } from "@/components/AppHeader";
 import { PostcodeInput } from "@/components/PostcodeInput";
 import { PostcodeDetails, PostcodeData } from "@/components/PostcodeDetails";
 import { AddressSelector, Address } from "@/components/AddressSelector";
-import { SelectedAddress } from "@/components/SelectedAddress";
+import { DataOptionsSelector, DataOptions } from "@/components/DataOptionsSelector";
 import { lookupPostcode } from "@/lib/postcodes-api";
 import { lookupAddressesByPostcode } from "@/lib/os-places";
-import { downloadEpcPdf } from "@/lib/epc-api";
+import { downloadPropertyReport } from "@/lib/report-api";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -60,17 +60,22 @@ const Index = () => {
     setSelectedAddress(address);
   };
 
-  const handleDownloadEPC = async () => {
+  const handleGenerateReport = async (options: DataOptions) => {
     if (!selectedAddress) {
       throw new Error("No address selected");
     }
 
-    const pdfBlob = await downloadEpcPdf(selectedAddress.uprn);
+    const pdfBlob = await downloadPropertyReport({
+      uprn: selectedAddress.uprn,
+      postcode: currentPostcode,
+      paon: selectedAddress.line1?.split(" ")[0], // Extract house number
+      options,
+    });
 
     const url = URL.createObjectURL(pdfBlob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `epc-${selectedAddress.uprn}.pdf`;
+    a.download = `property-report-${selectedAddress.uprn}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -103,11 +108,11 @@ const Index = () => {
             />
           )}
 
-          {/* Step 4 & 5: Selected Address + EPC Download */}
+          {/* Step 4: Data Options + Generate Report */}
           {selectedAddress && (
-            <SelectedAddress
+            <DataOptionsSelector
               address={selectedAddress}
-              onDownloadEPC={handleDownloadEPC}
+              onGenerateReport={handleGenerateReport}
             />
           )}
         </div>
