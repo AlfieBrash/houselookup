@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/epc")
 public class EpcController {
   private final EpcService epcService;
   private final PdfGenerationService pdfGenerationService;
@@ -26,7 +26,7 @@ public class EpcController {
     this.pdfGenerationService = pdfGenerationService;
   }
 
-  @GetMapping("/epc")
+  @GetMapping("")
   @ResponseStatus(HttpStatus.OK)
   public Map<String, Object> fetchEpc(@RequestParam String uprn) {
     if (uprn == null || uprn.trim().isEmpty()) {
@@ -37,7 +37,7 @@ public class EpcController {
     return result.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No EPC found."));
   }
 
-  @GetMapping("/epc/pdf")
+  @GetMapping("/pdf")
   public ResponseEntity<byte[]> fetchEpcPdf(@RequestParam String uprn) {
     if (uprn == null || uprn.trim().isEmpty()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "UPRN is required.");
