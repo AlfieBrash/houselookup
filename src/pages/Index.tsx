@@ -6,7 +6,7 @@ import { AddressSelector, Address } from "@/components/AddressSelector";
 import { SelectedAddress } from "@/components/SelectedAddress";
 import { lookupPostcode } from "@/lib/postcodes-api";
 import { lookupAddressesByPostcode } from "@/lib/os-places";
-import { fetchEpcByUprn } from "@/lib/epc-api";
+import { downloadEpcPdf } from "@/lib/epc-api";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -65,19 +65,12 @@ const Index = () => {
       throw new Error("No address selected");
     }
 
-    const epcData = await fetchEpcByUprn(selectedAddress.uprn);
+    const pdfBlob = await downloadEpcPdf(selectedAddress.uprn);
 
-    if (!epcData) {
-      throw new Error("No EPC found for this property");
-    }
-
-    const blob = new Blob([JSON.stringify(epcData, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(pdfBlob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `epc-${selectedAddress.uprn}.json`;
+    a.download = `epc-${selectedAddress.uprn}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
