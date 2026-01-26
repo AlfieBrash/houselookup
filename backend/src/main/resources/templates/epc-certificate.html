@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Energy Performance Certificate</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 20mm;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 10pt;
+      line-height: 1.5;
+      color: #2d3748;
+      background: #faf9f7;
+    }
+
+    .container {
+      max-width: 100%;
+      background: white;
+      border: 1px solid #e2ddd6;
+      border-radius: 8px;
+      padding: 24px;
+    }
+
+    .header {
+      border-bottom: 2px solid #3d8b8b;
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-size: 18pt;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 4px;
+    }
+
+    .header .subtitle {
+      font-size: 10pt;
+      color: #6b7280;
+    }
+
+    .address-block {
+      background: #f0fafa;
+      border: 1px solid #d1e7e7;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .address-block h2 {
+      font-size: 11pt;
+      font-weight: 600;
+      color: #3d8b8b;
+      margin-bottom: 8px;
+    }
+
+    .address-text {
+      font-size: 11pt;
+      font-weight: 500;
+      color: #2d3748;
+    }
+
+    .address-meta {
+      font-size: 9pt;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+
+    .rating-section {
+      display: table;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+
+    .rating-box {
+      display: table-cell;
+      width: 48%;
+      vertical-align: top;
+    }
+
+    .rating-box:first-child {
+      padding-right: 12px;
+    }
+
+    .rating-box:last-child {
+      padding-left: 12px;
+    }
+
+    .rating-card {
+      border: 1px solid #e2ddd6;
+      border-radius: 6px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .rating-card.current {
+      background: #fff;
+    }
+
+    .rating-card.potential {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+
+    .rating-label {
+      font-size: 9pt;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .rating-grade {
+      font-size: 36pt;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .rating-score {
+      font-size: 12pt;
+      font-weight: 600;
+      color: #4b5563;
+    }
+
+    .grade-a { color: #15803d; }
+    .grade-b { color: #22c55e; }
+    .grade-c { color: #84cc16; }
+    .grade-d { color: #eab308; }
+    .grade-e { color: #f97316; }
+    .grade-f { color: #ef4444; }
+    .grade-g { color: #b91c1c; }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .section-header {
+      font-size: 11pt;
+      font-weight: 600;
+      color: #3d8b8b;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e2ddd6;
+      margin-bottom: 12px;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .data-table tr {
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .data-table tr:last-child {
+      border-bottom: none;
+    }
+
+    .data-table td {
+      padding: 8px 0;
+      vertical-align: top;
+    }
+
+    .data-table .label {
+      color: #6b7280;
+      font-size: 9pt;
+      width: 45%;
+    }
+
+    .data-table .value {
+      color: #2d3748;
+      font-weight: 500;
+      font-size: 9pt;
+      text-align: right;
+    }
+
+    .costs-grid {
+      display: table;
+      width: 100%;
+      border: 1px solid #e2ddd6;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .costs-row {
+      display: table-row;
+    }
+
+    .costs-cell {
+      display: table-cell;
+      padding: 10px 12px;
+      border-bottom: 1px solid #e2ddd6;
+      font-size: 9pt;
+    }
+
+    .costs-row:last-child .costs-cell {
+      border-bottom: none;
+    }
+
+    .costs-header {
+      background: #f9fafb;
+      font-weight: 600;
+      color: #4b5563;
+    }
+
+    .costs-label {
+      width: 40%;
+      color: #6b7280;
+    }
+
+    .costs-current {
+      width: 30%;
+      text-align: right;
+      color: #2d3748;
+      font-weight: 500;
+    }
+
+    .costs-potential {
+      width: 30%;
+      text-align: right;
+      color: #15803d;
+      font-weight: 500;
+    }
+
+    .efficiency-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 8pt;
+      font-weight: 500;
+    }
+
+    .eff-very-good { background: #dcfce7; color: #15803d; }
+    .eff-good { background: #dbeafe; color: #1d4ed8; }
+    .eff-average { background: #fef3c7; color: #b45309; }
+    .eff-poor { background: #fed7aa; color: #c2410c; }
+    .eff-very-poor { background: #fecaca; color: #b91c1c; }
+
+    .footer {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid #e2ddd6;
+      font-size: 8pt;
+      color: #9ca3af;
+    }
+
+    .footer-row {
+      display: table;
+      width: 100%;
+    }
+
+    .footer-col {
+      display: table-cell;
+      width: 50%;
+    }
+
+    .two-col {
+      display: table;
+      width: 100%;
+    }
+
+    .two-col-cell {
+      display: table-cell;
+      width: 50%;
+      vertical-align: top;
+    }
+
+    .two-col-cell:first-child {
+      padding-right: 12px;
+    }
+
+    .two-col-cell:last-child {
+      padding-left: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>Energy Performance Certificate</h1>
+      <div class="subtitle">Official EPC data from the UK Government register</div>
+    </div>
+
+    <!-- Address Block -->
+    <div class="address-block">
+      <h2>Property Address</h2>
+      <div class="address-text" th:text="${epc.address}">1 Example Street, London, SW1A 1AA</div>
+      <div class="address-meta">
+        <span th:if="${epc.uprn}">UPRN: <span th:text="${epc.uprn}">12345678</span></span>
+        <span th:if="${epc['building-reference-number']}"> · Ref: <span th:text="${epc['building-reference-number']}">1234567890</span></span>
+      </div>
+    </div>
+
+    <!-- Energy Ratings -->
+    <div class="rating-section">
+      <div class="rating-box">
+        <div class="rating-card current">
+          <div class="rating-label">Current Rating</div>
+          <div class="rating-grade" th:classappend="'grade-' + ${#strings.toLowerCase(epc['current-energy-rating'])}" th:text="${epc['current-energy-rating']}">D</div>
+          <div class="rating-score"><span th:text="${epc['current-energy-efficiency']}">55</span> / 100</div>
+        </div>
+      </div>
+      <div class="rating-box">
+        <div class="rating-card potential">
+          <div class="rating-label">Potential Rating</div>
+          <div class="rating-grade" th:classappend="'grade-' + ${#strings.toLowerCase(epc['potential-energy-rating'])}" th:text="${epc['potential-energy-rating']}">B</div>
+          <div class="rating-score"><span th:text="${epc['potential-energy-efficiency']}">82</span> / 100</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Property Details -->
+    <div class="section">
+      <div class="section-header">Property Details</div>
+      <div class="two-col">
+        <div class="two-col-cell">
+          <table class="data-table">
+            <tr>
+              <td class="label">Property Type</td>
+              <td class="value" th:text="${epc['property-type']} ?: '—'">House</td>
+            </tr>
+            <tr>
+              <td class="label">Built Form</td>
+              <td class="value" th:text="${epc['built-form']} ?: '—'">Detached</td>
+            </tr>
+            <tr>
+              <td class="label">Floor Area</td>
+              <td class="value"><span th:text="${epc['total-floor-area']} ?: '—'">120</span> m²</td>
+            </tr>
+            <tr>
+              <td class="label">Habitable Rooms</td>
+              <td class="value" th:text="${epc['number-habitable-rooms']} ?: '—'">4</td>
+            </tr>
+          </table>
+        </div>
+        <div class="two-col-cell">
+          <table class="data-table">
+            <tr>
+              <td class="label">Construction Age</td>
+              <td class="value" th:text="${epc['construction-age-band']} ?: '—'">1950-1966</td>
+            </tr>
+            <tr>
+              <td class="label">Floor Level</td>
+              <td class="value" th:text="${epc['floor-level']} ?: '—'">Ground</td>
+            </tr>
+            <tr>
+              <td class="label">Tenure</td>
+              <td class="value" th:text="${epc.tenure} ?: '—'">Owner-occupied</td>
+            </tr>
+            <tr>
+              <td class="label">Transaction Type</td>
+              <td class="value" th:text="${epc['transaction-type']} ?: '—'">Sale</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Energy Costs -->
+    <div class="section">
+      <div class="section-header">Estimated Annual Energy Costs</div>
+      <div class="costs-grid">
+        <div class="costs-row">
+          <div class="costs-cell costs-header costs-label">Cost Type</div>
+          <div class="costs-cell costs-header costs-current">Current (£/year)</div>
+          <div class="costs-cell costs-header costs-potential">Potential (£/year)</div>
+        </div>
+        <div class="costs-row">
+          <div class="costs-cell costs-label">Heating</div>
+          <div class="costs-cell costs-current">£<span th:text="${epc['heating-cost-current']} ?: '—'">1200</span></div>
+          <div class="costs-cell costs-potential">£<span th:text="${epc['heating-cost-potential']} ?: '—'">650</span></div>
+        </div>
+        <div class="costs-row">
+          <div class="costs-cell costs-label">Hot Water</div>
+          <div class="costs-cell costs-current">£<span th:text="${epc['hot-water-cost-current']} ?: '—'">180</span></div>
+          <div class="costs-cell costs-potential">£<span th:text="${epc['hot-water-cost-potential']} ?: '—'">120</span></div>
+        </div>
+        <div class="costs-row">
+          <div class="costs-cell costs-label">Lighting</div>
+          <div class="costs-cell costs-current">£<span th:text="${epc['lighting-cost-current']} ?: '—'">120</span></div>
+          <div class="costs-cell costs-potential">£<span th:text="${epc['lighting-cost-potential']} ?: '—'">80</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Building Fabric -->
+    <div class="section">
+      <div class="section-header">Building Fabric</div>
+      <table class="data-table">
+        <tr th:if="${epc['walls-description']}">
+          <td class="label">Walls</td>
+          <td class="value">
+            <span th:text="${epc['walls-description']}">Cavity wall, insulated</span>
+            <span th:if="${epc['walls-energy-eff']}" class="efficiency-badge" 
+                  th:classappend="${epc['walls-energy-eff'] == 'Very Good' ? 'eff-very-good' : (epc['walls-energy-eff'] == 'Good' ? 'eff-good' : (epc['walls-energy-eff'] == 'Average' ? 'eff-average' : (epc['walls-energy-eff'] == 'Poor' ? 'eff-poor' : 'eff-very-poor')))}"
+                  th:text="${epc['walls-energy-eff']}">Good</span>
+          </td>
+        </tr>
+        <tr th:if="${epc['roof-description']}">
+          <td class="label">Roof</td>
+          <td class="value">
+            <span th:text="${epc['roof-description']}">Pitched, 200mm insulation</span>
+            <span th:if="${epc['roof-energy-eff']}" class="efficiency-badge"
+                  th:classappend="${epc['roof-energy-eff'] == 'Very Good' ? 'eff-very-good' : (epc['roof-energy-eff'] == 'Good' ? 'eff-good' : (epc['roof-energy-eff'] == 'Average' ? 'eff-average' : (epc['roof-energy-eff'] == 'Poor' ? 'eff-poor' : 'eff-very-poor')))}"
+                  th:text="${epc['roof-energy-eff']}">Good</span>
+          </td>
+        </tr>
+        <tr th:if="${epc['floor-description']}">
+          <td class="label">Floor</td>
+          <td class="value">
+            <span th:text="${epc['floor-description']}">Solid, no insulation</span>
+            <span th:if="${epc['floor-energy-eff']}" class="efficiency-badge"
+                  th:classappend="${epc['floor-energy-eff'] == 'Very Good' ? 'eff-very-good' : (epc['floor-energy-eff'] == 'Good' ? 'eff-good' : (epc['floor-energy-eff'] == 'Average' ? 'eff-average' : (epc['floor-energy-eff'] == 'Poor' ? 'eff-poor' : 'eff-very-poor')))}"
+                  th:text="${epc['floor-energy-eff']}">N/A</span>
+          </td>
+        </tr>
+        <tr th:if="${epc['windows-description']}">
+          <td class="label">Windows</td>
+          <td class="value">
+            <span th:text="${epc['windows-description']}">Double glazed</span>
+            <span th:if="${epc['windows-energy-eff']}" class="efficiency-badge"
+                  th:classappend="${epc['windows-energy-eff'] == 'Very Good' ? 'eff-very-good' : (epc['windows-energy-eff'] == 'Good' ? 'eff-good' : (epc['windows-energy-eff'] == 'Average' ? 'eff-average' : (epc['windows-energy-eff'] == 'Poor' ? 'eff-poor' : 'eff-very-poor')))}"
+                  th:text="${epc['windows-energy-eff']}">Good</span>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Heating & Hot Water -->
+    <div class="section">
+      <div class="section-header">Heating &amp; Hot Water</div>
+      <table class="data-table">
+        <tr th:if="${epc['mainheat-description']}">
+          <td class="label">Main Heating</td>
+          <td class="value">
+            <span th:text="${epc['mainheat-description']}">Boiler and radiators</span>
+            <span th:if="${epc['mainheat-energy-eff']}" class="efficiency-badge"
+                  th:classappend="${epc['mainheat-energy-eff'] == 'Very Good' ? 'eff-very-good' : (epc['mainheat-energy-eff'] == 'Good' ? 'eff-good' : (epc['mainheat-energy-eff'] == 'Average' ? 'eff-average' : (epc['mainheat-energy-eff'] == 'Poor' ? 'eff-poor' : 'eff-very-poor')))}"
+                  th:text="${epc['mainheat-energy-eff']}">Good</span>
+          </td>
+        </tr>
+        <tr th:if="${epc['mainheatcont-description']}">
+          <td class="label">Heating Controls</td>
+          <td class="value">
+            <span th:text="${epc['mainheatcont-description']}">Programmer, thermostat, TRVs</span>
+            <span th:if="${epc['mainheatc-energy-eff']}" class="efficiency-badge"
+                  th:classappend="${epc['mainheatc-energy-eff'] == 'Very Good' ? 'eff-very-good' : (epc['mainheatc-energy-eff'] == 'Good' ? 'eff-good' : (epc['mainheatc-energy-eff'] == 'Average' ? 'eff-average' : (epc['mainheatc-energy-eff'] == 'Poor' ? 'eff-poor' : 'eff-very-poor')))}"
+                  th:text="${epc['mainheatc-energy-eff']}">Good</span>
+          </td>
+        </tr>
+        <tr th:if="${epc['hotwater-description']}">
+          <td class="label">Hot Water</td>
+          <td class="value">
+            <span th:text="${epc['hotwater-description']}">From main system</span>
+            <span th:if="${epc['hot-water-energy-eff']}" class="efficiency-badge"
+                  th:classappend="${epc['hot-water-energy-eff'] == 'Very Good' ? 'eff-very-good' : (epc['hot-water-energy-eff'] == 'Good' ? 'eff-good' : (epc['hot-water-energy-eff'] == 'Average' ? 'eff-average' : (epc['hot-water-energy-eff'] == 'Poor' ? 'eff-poor' : 'eff-very-poor')))}"
+                  th:text="${epc['hot-water-energy-eff']}">Average</span>
+          </td>
+        </tr>
+        <tr th:if="${epc['main-fuel']}">
+          <td class="label">Main Fuel</td>
+          <td class="value" th:text="${epc['main-fuel']}">Mains gas</td>
+        </tr>
+        <tr th:if="${epc['lighting-description']}">
+          <td class="label">Lighting</td>
+          <td class="value">
+            <span th:text="${epc['lighting-description']}">Low energy lighting</span>
+            <span th:if="${epc['lighting-energy-eff']}" class="efficiency-badge"
+                  th:classappend="${epc['lighting-energy-eff'] == 'Very Good' ? 'eff-very-good' : (epc['lighting-energy-eff'] == 'Good' ? 'eff-good' : (epc['lighting-energy-eff'] == 'Average' ? 'eff-average' : (epc['lighting-energy-eff'] == 'Poor' ? 'eff-poor' : 'eff-very-poor')))}"
+                  th:text="${epc['lighting-energy-eff']}">Good</span>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Environmental Impact -->
+    <div class="section">
+      <div class="section-header">Environmental Impact</div>
+      <div class="two-col">
+        <div class="two-col-cell">
+          <table class="data-table">
+            <tr>
+              <td class="label">CO₂ Emissions (Current)</td>
+              <td class="value"><span th:text="${epc['co2-emissions-current']} ?: '—'">5.2</span> tonnes/year</td>
+            </tr>
+            <tr>
+              <td class="label">CO₂ Emissions (Potential)</td>
+              <td class="value"><span th:text="${epc['co2-emissions-potential']} ?: '—'">2.8</span> tonnes/year</td>
+            </tr>
+          </table>
+        </div>
+        <div class="two-col-cell">
+          <table class="data-table">
+            <tr>
+              <td class="label">Energy Use (Current)</td>
+              <td class="value"><span th:text="${epc['energy-consumption-current']} ?: '—'">280</span> kWh/m²/year</td>
+            </tr>
+            <tr>
+              <td class="label">Energy Use (Potential)</td>
+              <td class="value"><span th:text="${epc['energy-consumption-potential']} ?: '—'">150</span> kWh/m²/year</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-row">
+        <div class="footer-col">
+          <strong>Inspection Date:</strong> <span th:text="${epc['inspection-date']} ?: 'Not available'">2024-01-01</span><br/>
+          <strong>Lodgement Date:</strong> <span th:text="${epc['lodgement-date']} ?: 'Not available'">2024-01-05</span>
+        </div>
+        <div class="footer-col" style="text-align: right;">
+          <strong>Certificate Reference:</strong> <span th:text="${epc['lmk-key']} ?: 'Not available'">abc123</span><br/>
+          <strong>Local Authority:</strong> <span th:text="${epc['local-authority-label']} ?: 'Not available'">Example Council</span>
+        </div>
+      </div>
+      <div style="margin-top: 12px; text-align: center;">
+        This certificate was generated from official UK EPC register data.<br/>
+        For more information visit: www.gov.uk/find-energy-certificate
+      </div>
+    </div>
+  </div>
+</body>
+</html>

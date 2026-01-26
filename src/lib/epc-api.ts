@@ -68,3 +68,23 @@ export async function fetchEpcByUprn(uprn: string): Promise<EpcCertificate | nul
 
   return response.json();
 }
+
+export async function downloadEpcPdf(uprn: string): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(`${BACKEND_URL}/api/epc/pdf?uprn=${encodeURIComponent(uprn)}`);
+  } catch (error) {
+    console.error("EPC PDF download network error.", { uprn, error });
+    throw error;
+  }
+
+  if (response.status === 404) {
+    throw new Error("No EPC found for this property");
+  }
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response));
+  }
+
+  return response.blob();
+}

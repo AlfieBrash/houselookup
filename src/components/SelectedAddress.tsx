@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Address } from "@/components/AddressSelector";
-import { CheckCircle, Download, Loader2, FileJson, AlertCircle } from "lucide-react";
+import { CheckCircle, Download, Loader2, AlertCircle } from "lucide-react";
 
 interface SelectedAddressProps {
   address: Address;
@@ -77,8 +77,8 @@ export function SelectedAddress({ address, onDownloadEPC }: SelectedAddressProps
               </>
             ) : (
               <>
-                <FileJson className="h-4 w-4 mr-2" />
-                Download EPC (JSON)
+                <Download className="h-4 w-4 mr-2" />
+                Download EPC (PDF)
               </>
             )}
           </Button>
