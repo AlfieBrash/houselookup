@@ -1,7 +1,11 @@
 C:\Users\alfie\VSCodeProjects\houselookup\backend\src\main\java\com\houselookup\backend\service\EpcService.java
 C:\Users\alfie\VSCodeProjects\houselookup\backend\src\main\java\com\houselookup\backend\config\WebConfig.java
+C:\Users\alfie\VSCodeProjects\houselookup\backend\src\main\java\com\houselookup\backend\controller\ReportController.java
 C:\Users\alfie\VSCodeProjects\houselookup\backend\src\main\java\com\houselookup\backend\service\OsPlacesService.java
+C:\Users\alfie\VSCodeProjects\houselookup\backend\src\main\java\com\houselookup\backend\service\ReportPdfService.java
 C:\Users\alfie\VSCodeProjects\houselookup\backend\src\main\java\com\houselookup\backend\model\Address.java
 C:\Users\alfie\VSCodeProjects\houselookup\backend\src\main\java\com\houselookup\backend\controller\EpcController.java
+C:\Users\alfie\VSCodeProjects\houselookup\backend\src\main\java\com\houselookup\backend\service\LandRegistryService.java
+C:\Users\alfie\VSCodeProjects\houselookup\backend\src\main\java\com\houselookup\backend\service\PdfGenerationService.java
 C:\Users\alfie\VSCodeProjects\houselookup\backend\src\main\java\com\houselookup\backend\HouseLookupBackendApplication.java
 C:\Users\alfie\VSCodeProjects\houselookup\backend\src\main\java\com\houselookup\backend\controller\AddressController.java
