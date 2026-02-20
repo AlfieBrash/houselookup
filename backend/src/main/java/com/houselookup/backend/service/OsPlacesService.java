@@ -15,10 +15,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
 public class OsPlacesService {
-  private static final String TEST_POSTCODE = "TEST 123";
-  private static final Address TEST_ADDRESS =
-      new Address("200000644141", "Givendale House", "Great Givendale", "York", "YO42 1TT");
-
   private final RestTemplate restTemplate;
   private final String endpoint;
   private final String apiKey;
@@ -36,9 +32,6 @@ public class OsPlacesService {
     String trimmed = postcode == null ? "" : postcode.trim();
     if (trimmed.contains("%")) {
       trimmed = URLDecoder.decode(trimmed, StandardCharsets.UTF_8);
-    }
-    if (trimmed.equalsIgnoreCase(TEST_POSTCODE)) {
-      return List.of(TEST_ADDRESS);
     }
 
     if (apiKey == null || apiKey.isBlank()) {
