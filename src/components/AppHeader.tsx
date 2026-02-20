@@ -10,7 +10,7 @@ export function AppHeader() {
           </div>
           <div>
             <h1 className="text-lg font-semibold text-foreground">
-              Property Lookup
+              Property Pal
             </h1>
             <p className="text-sm text-muted-foreground">
               UK first-time buyer assistant
