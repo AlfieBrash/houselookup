@@ -1,4 +1,4 @@
-# House Lookup Backend
+# Property Pal Backend
 
 Spring Boot backend that proxies EPC + OS Places lookups to avoid CORS issues and keep API keys off the client.
 
