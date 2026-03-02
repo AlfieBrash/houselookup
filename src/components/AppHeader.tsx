@@ -4,7 +4,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 export function AppHeader() {
   return (
     <header className="border-b border-border bg-card">
-      <div className="max-w-3xl mx-auto px-6 py-2.5 sm:py-4">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-2 sm:py-3 md:py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
