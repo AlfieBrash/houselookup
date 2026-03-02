@@ -2,8 +2,8 @@ import { Search, FileText, Shield } from "lucide-react";
 
 export function HeroSection() {
   return (
-    <section className="py-12 text-center fade-in">
-      <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+    <section className="py-6 sm:py-12 text-center fade-in">
+      <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-4xl">
         Your property red-flag detector
       </h2>
       <p className="mt-3 text-lg text-muted-foreground max-w-xl mx-auto">
@@ -12,7 +12,7 @@ export function HeroSection() {
         commit.
       </p>
 
-      <div className="mt-10 grid grid-cols-3 gap-3 sm:gap-6 max-w-2xl mx-auto">
+      <div className="mt-6 sm:mt-10 grid grid-cols-3 gap-3 sm:gap-6 max-w-2xl mx-auto">
         {[
         {
           icon: Search,
