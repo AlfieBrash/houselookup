@@ -2,17 +2,17 @@ import { Search, FileText, Shield } from "lucide-react";
 
 export function HeroSection() {
   return (
-    <section className="py-6 sm:py-12 text-center fade-in">
-      <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-4xl">
+    <section className="py-4 sm:py-8 md:py-12 text-center fade-in">
+      <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
         Your property red-flag detector
       </h2>
-      <p className="mt-3 text-lg text-muted-foreground max-w-xl mx-auto">
+      <p className="mt-2 sm:mt-3 text-sm sm:text-base md:text-lg text-muted-foreground max-w-xl mx-auto">
         Thinking of buying or renting in the UK? Get a quick sanity check on any
         property — EPC ratings, flood risk, sale history and more — before you
         commit.
       </p>
 
-      <div className="mt-6 sm:mt-10 grid grid-cols-3 gap-3 sm:gap-6 max-w-2xl mx-auto">
+      <div className="mt-4 sm:mt-6 md:mt-10 grid grid-cols-3 gap-2 sm:gap-4 md:gap-6 max-w-2xl mx-auto">
         {[
         {
           icon: Search,
