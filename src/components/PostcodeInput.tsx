@@ -12,11 +12,39 @@ interface PostcodeInputProps {
 // UK postcode regex - matches full postcodes
 const UK_POSTCODE_REGEX = /^[A-Z]{1,2}[0-9][0-9A-Z]?\s*[0-9][A-Z]{2}$/i;
 
+const WAITING_MESSAGES = [
+  "Still searching… the Royal Mail isn't known for speed 🐌",
+  "Hang tight — our hamster is running as fast as he can 🐹",
+  "Good things come to those who wait… unlike UK house prices 📈",
+  "Still going… must be a really popular postcode 🏘️",
+  "We're not stuck, we're just being thorough. Very thorough 🔍",
+  "Fun fact: you've now waited longer than most estate agents return calls 📞",
+  "Plot twist: the data was hiding behind the sofa 🛋️",
+  "Almost there… probably… we think… 🤞",
+];
+
 export function PostcodeInput({ onSearch, isLoading, error }: PostcodeInputProps) {
   const [postcode, setPostcode] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
+  const [waitingMessageIndex, setWaitingMessageIndex] = useState(-1);
 
   const isValidPostcode = UK_POSTCODE_REGEX.test(postcode.trim());
+
+  // Cycle through funny waiting messages every 10s while loading
+  useEffect(() => {
+    if (!isLoading) {
+      setWaitingMessageIndex(-1);
+      return;
+    }
+    const initial = setTimeout(() => setWaitingMessageIndex(0), 10000);
+    const interval = setInterval(() => {
+      setWaitingMessageIndex((prev) => (prev + 1) % WAITING_MESSAGES.length);
+    }, 10000);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
+  }, [isLoading]);
 
   const handleSearch = useCallback(() => {
     if (isValidPostcode && !isLoading) {
@@ -82,6 +110,12 @@ export function PostcodeInput({ onSearch, isLoading, error }: PostcodeInputProps
           </div>
           <p className="helper-text">Enter a UK postcode to find addresses</p>
         </div>
+
+        {waitingMessageIndex >= 0 && isLoading && (
+          <p className="text-sm text-muted-foreground text-center fade-in mt-2">
+            {WAITING_MESSAGES[waitingMessageIndex]}
+          </p>
+        )}
 
         {error && (
           <div className="error-inline fade-in">
