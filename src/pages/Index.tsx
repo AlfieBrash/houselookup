@@ -7,6 +7,7 @@ import { DataOptionsSelector, DataOptions } from "@/components/DataOptionsSelect
 import { lookupPostcode } from "@/lib/postcodes-api";
 import { lookupAddressesByPostcode } from "@/lib/os-places";
 import { downloadPropertyReport } from "@/lib/report-api";
+import { HeroSection } from "@/components/HeroSection";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -45,12 +46,12 @@ const Index = () => {
         setAddresses(addressResults);
       } catch (error) {
         setAddressError(
-          error instanceof Error ? error.message : "Failed to lookup addresses"
+          error instanceof Error ? error.message : "The addresses seem to have gone into hiding. How very British of them."
         );
         setAddresses([]);
       }
     } catch (error) {
-      setPostcodeError(error instanceof Error ? error.message : "Failed to lookup postcode");
+      setPostcodeError(error instanceof Error ? error.message : "Something went rather wrong there. Stiff upper lip — try again.");
     } finally {
       setIsLoading(false);
     }
@@ -84,11 +85,23 @@ const Index = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleReset = () => {
+    setPostcodeData(null);
+    setAddresses(null);
+    setSelectedAddress(null);
+    setPostcodeError(null);
+    setAddressError(null);
+    setCurrentPostcode("");
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader />
+      <AppHeader onReset={handleReset} />
 
-      <main className="max-w-3xl mx-auto px-6 py-8">
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-3 sm:py-6 md:py-8">
+        {/* Hero – hidden once a search has been performed */}
+        {!postcodeData && !isLoading && <HeroSection />}
+
         <div className="space-y-6">
           {/* Step 1: Postcode Input */}
           <PostcodeInput

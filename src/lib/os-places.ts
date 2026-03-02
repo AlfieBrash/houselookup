@@ -4,7 +4,7 @@ const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? 
 
 const parseErrorMessage = async (response: Response) => {
   const text = await response.text();
-  return text || "Failed to lookup addresses. Please try again.";
+  return text || "The address service seems to have wandered off. Terribly sorry — do give it another go.";
 };
 
 export async function lookupAddressesByPostcode(postcode: string): Promise<Address[]> {
