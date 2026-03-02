@@ -89,7 +89,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <AppHeader />
 
-      <main className="max-w-3xl mx-auto px-6 py-8">
+      <main className="max-w-3xl mx-auto px-6 py-4 sm:py-8">
         {/* Hero – hidden once a search has been performed */}
         {!postcodeData && !isLoading && <HeroSection />}
 
