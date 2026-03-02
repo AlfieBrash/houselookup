@@ -23,15 +23,15 @@ export async function lookupPostcode(postcode: string): Promise<PostcodesApiResu
   
   if (!response.ok) {
     if (response.status === 404) {
-      throw new Error("Invalid postcode. Please check and try again.");
+      throw new Error("That postcode doesn't seem to exist — even the Royal Mail hasn't heard of it.");
     }
-    throw new Error("Failed to lookup postcode. Please try again.");
+    throw new Error("Our postcode service is having a bit of a lie-down. Do try again in a moment.");
   }
 
   const data: PostcodeResponse = await response.json();
   
   if (data.status !== 200 || !data.result) {
-    throw new Error(data.error || "Postcode not found");
+    throw new Error(data.error || "We looked everywhere, but that postcode remains a mystery.");
   }
 
   return data.result;

@@ -94,7 +94,7 @@ export function DataOptionsSelector({ address, onGenerateReport }: DataOptionsSe
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate report");
+      setError(err instanceof Error ? err.message : "The report hit a snag. These things happen — even to the best of us.");
     } finally {
       setIsGenerating(false);
     }

@@ -13,7 +13,7 @@ export interface ReportParams {
 
 const parseErrorMessage = async (response: Response) => {
   const text = await response.text();
-  return text || "Failed to generate report. Please try again.";
+  return text || "The report generator has gone on a tea break. Please try again shortly.";
 };
 
 export async function downloadPropertyReport(params: ReportParams): Promise<Blob> {
@@ -44,7 +44,7 @@ export async function downloadPropertyReport(params: ReportParams): Promise<Blob
   }
 
   if (response.status === 404) {
-    throw new Error("No data found for this property");
+    throw new Error("This property appears to be keeping its secrets. No data found, we're afraid.");
   }
 
   if (!response.ok) {
