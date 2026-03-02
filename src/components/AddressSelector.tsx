@@ -45,10 +45,10 @@ export function AddressSelector({ postcode, addresses, onSelect, error }: Addres
         </div>
         <div className="text-center py-8">
           <p className="text-muted-foreground">
-            {error ? "We couldn't load addresses for this postcode." : "No addresses found for this postcode."}
+            {error ? "The addresses refused to come out. Typical." : "No addresses found here — it's quieter than a village on a Sunday."}
           </p>
           <p className="text-sm text-muted-foreground/70 mt-2">
-            Try another postcode or check your OS Places API setup.
+            You could try a different postcode, or pop the kettle on and try again.
           </p>
         </div>
         {error && <div className="error-inline fade-in">{error}</div>}

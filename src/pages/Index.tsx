@@ -46,12 +46,12 @@ const Index = () => {
         setAddresses(addressResults);
       } catch (error) {
         setAddressError(
-          error instanceof Error ? error.message : "Failed to lookup addresses"
+          error instanceof Error ? error.message : "The addresses seem to have gone into hiding. How very British of them."
         );
         setAddresses([]);
       }
     } catch (error) {
-      setPostcodeError(error instanceof Error ? error.message : "Failed to lookup postcode");
+      setPostcodeError(error instanceof Error ? error.message : "Something went rather wrong there. Stiff upper lip — try again.");
     } finally {
       setIsLoading(false);
     }
