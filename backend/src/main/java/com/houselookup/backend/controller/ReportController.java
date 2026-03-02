@@ -1,6 +1,7 @@
 package com.houselookup.backend.controller;
 
 import com.houselookup.backend.service.EpcService;
+import com.houselookup.backend.service.FloodRiskService;
 import com.houselookup.backend.service.LandRegistryService;
 import com.houselookup.backend.service.ReportPdfService;
 import java.util.List;
@@ -22,14 +23,17 @@ public class ReportController {
 
   private final EpcService epcService;
   private final LandRegistryService landRegistryService;
+  private final FloodRiskService floodRiskService;
   private final ReportPdfService reportPdfService;
 
   public ReportController(
       EpcService epcService,
       LandRegistryService landRegistryService,
+      FloodRiskService floodRiskService,
       ReportPdfService reportPdfService) {
     this.epcService = epcService;
     this.landRegistryService = landRegistryService;
+    this.floodRiskService = floodRiskService;
     this.reportPdfService = reportPdfService;
   }
 
@@ -39,7 +43,10 @@ public class ReportController {
       @RequestParam String postcode,
       @RequestParam(required = false) String paon,
       @RequestParam(defaultValue = "true") boolean includeEpc,
-      @RequestParam(defaultValue = "true") boolean includePriceHistory) {
+      @RequestParam(defaultValue = "true") boolean includePriceHistory,
+      @RequestParam(defaultValue = "false") boolean includeFloodRisk,
+      @RequestParam(required = false) Double latitude,
+      @RequestParam(required = false) Double longitude) {
 
     if (uprn == null || uprn.trim().isEmpty()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "UPRN is required.");
@@ -61,14 +68,22 @@ public class ReportController {
       priceHistory = landRegistryService.fetchPriceHistory(postcode.trim(), paon);
     }
 
+    // Fetch flood risk if requested
+    Map<String, Object> floodRiskData = null;
+    if (includeFloodRisk) {
+      floodRiskData = floodRiskService.fetchAssessment(latitude, longitude);
+    }
+
     // Check we have at least some data
-    if (epcData == null && (priceHistory == null || priceHistory.isEmpty())) {
+    if (epcData == null
+        && (priceHistory == null || priceHistory.isEmpty())
+        && floodRiskData == null) {
       throw new ResponseStatusException(
           HttpStatus.NOT_FOUND, "No data found for this property.");
     }
 
     try {
-      byte[] pdfBytes = reportPdfService.generateReport(epcData, priceHistory, postcode);
+      byte[] pdfBytes = reportPdfService.generateReport(epcData, priceHistory, floodRiskData, postcode);
 
       HttpHeaders headers = new HttpHeaders();
       headers.setContentType(MediaType.APPLICATION_PDF);

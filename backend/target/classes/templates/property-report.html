@@ -302,6 +302,89 @@
       color: #6b7280;
     }
 
+    .flood-summary-grid {
+      display: table;
+      width: 100%;
+      border: 1px solid #e2ddd6;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    .flood-summary-row {
+      display: table-row;
+    }
+
+    .flood-summary-cell {
+      display: table-cell;
+      width: 33%;
+      padding: 10px 12px;
+      border-right: 1px solid #e2ddd6;
+      vertical-align: top;
+    }
+
+    .flood-summary-cell:last-child {
+      border-right: none;
+    }
+
+    .flood-summary-label {
+      font-size: 8pt;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 4px;
+    }
+
+    .flood-summary-value {
+      font-size: 10pt;
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .flood-summary-text {
+      margin-bottom: 10px;
+      font-size: 9pt;
+      color: #4b5563;
+    }
+
+    .risk-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 8pt;
+      font-weight: 600;
+    }
+
+    .risk-severe { background: #fecaca; color: #991b1b; }
+    .risk-high { background: #fed7aa; color: #9a3412; }
+    .risk-moderate { background: #fef3c7; color: #92400e; }
+    .risk-low { background: #dcfce7; color: #166534; }
+
+    .warning-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #e2ddd6;
+      border-radius: 6px;
+    }
+
+    .warning-table th,
+    .warning-table td {
+      padding: 8px 10px;
+      text-align: left;
+      font-size: 8.5pt;
+      border-bottom: 1px solid #e2ddd6;
+      vertical-align: top;
+    }
+
+    .warning-table th {
+      background: #f9fafb;
+      font-weight: 600;
+      color: #4b5563;
+    }
+
+    .warning-table tr:last-child td {
+      border-bottom: none;
+    }
+
     .no-data {
       padding: 20px;
       text-align: center;
@@ -550,12 +633,76 @@
       </table>
     </div>
 
-    <div th:if="${not hasPriceHistory and not hasEpc}" class="no-data">
+    <!-- Flood Risk Section -->
+    <div th:if="${hasFloodRisk}" class="section">
+      <div class="section-header">Flood Risk Assessment (Environment Agency)</div>
+
+      <div th:if="${floodRisk.available}">
+        <div class="flood-summary-grid">
+          <div class="flood-summary-row">
+            <div class="flood-summary-cell">
+              <div class="flood-summary-label">Overall Risk</div>
+              <div>
+                <span class="risk-badge"
+                      th:classappend="${floodRisk.overallRisk == 'Severe' ? 'risk-severe' : (floodRisk.overallRisk == 'High' ? 'risk-high' : (floodRisk.overallRisk == 'Moderate' ? 'risk-moderate' : 'risk-low'))}"
+                      th:text="${floodRisk.overallRisk}">Low</span>
+              </div>
+            </div>
+            <div class="flood-summary-cell">
+              <div class="flood-summary-label">Active Alerts/Warnings</div>
+              <div class="flood-summary-value" th:text="${floodRisk.activeWarningCount}">0</div>
+            </div>
+            <div class="flood-summary-cell">
+              <div class="flood-summary-label">Search Radius</div>
+              <div class="flood-summary-value"><span th:text="${floodRisk.searchRadiusKm}">5</span> km</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flood-summary-text" th:text="${floodRisk.summary}">
+          No active flood alerts or warnings were found.
+        </div>
+
+        <table class="warning-table" th:if="${floodRisk.activeWarningCount > 0}">
+          <thead>
+          <tr>
+            <th>Severity</th>
+            <th>Area</th>
+            <th>County</th>
+            <th>Raised</th>
+            <th>Message</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr th:each="warning : ${floodRisk.warnings}">
+            <td th:text="${warning.severity} ?: 'Unknown'">Flood alert</td>
+            <td th:text="${!#strings.isEmpty(warning.areaName) ? warning.areaName : (!#strings.isEmpty(warning.riverOrSea) ? warning.riverOrSea : 'Unknown area')}">River area</td>
+            <td th:text="${warning.county} ?: '-'">County</td>
+            <td th:text="${warning.timeRaised != null and warning.timeRaised.length() >= 10 ? #strings.substring(warning.timeRaised, 0, 10) : 'Unknown'}">2026-01-10</td>
+            <td th:text="${warning.message} ?: '-'">No message</td>
+          </tr>
+          </tbody>
+        </table>
+
+        <div th:if="${floodRisk.activeWarningCount == 0}" class="no-data">
+          No active flood alerts or warnings were found near this property.
+        </div>
+      </div>
+
+      <div th:unless="${floodRisk.available}" class="no-data">
+        <span th:text="${floodRisk.summary}">Flood risk data is temporarily unavailable.</span>
+      </div>
+    </div>
+
+    <div th:if="${not hasPriceHistory and not hasEpc and not hasFloodRisk}" class="no-data">
       No data available for this property.
     </div>
 
     <!-- Footer -->
     <div class="footer">
+      <div th:if="${hasFloodRisk}" style="margin-top: 4px;">
+        Flood data from Environment Agency Flood Monitoring API.
+      </div>
       <div>Generated by Property Pal · Data from UK Government sources</div>
       <div th:if="${hasEpc}" style="margin-top: 4px;">
         EPC Lodgement: <span th:text="${epc['lodgement-date']}">2024-01-01</span>

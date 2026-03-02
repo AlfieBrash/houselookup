@@ -69,6 +69,8 @@ const Index = () => {
       uprn: selectedAddress.uprn,
       postcode: currentPostcode,
       paon: selectedAddress.line1?.split(" ")[0], // Extract house number
+      latitude: postcodeData?.latitude,
+      longitude: postcodeData?.longitude,
       options,
     });
 

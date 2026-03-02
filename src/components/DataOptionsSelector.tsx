@@ -36,9 +36,9 @@ const dataOptionsList = [
   {
     id: "floodRisk" as const,
     label: "Flood Risk Assessment",
-    description: "Environment Agency flood zone data",
+    description: "Environment Agency active flood alerts and warnings",
     icon: MapPin,
-    available: false,
+    available: true,
   },
   {
     id: "schoolsCatchment" as const,

@@ -1,4 +1,5 @@
 com\houselookup\backend\service\EpcService$1.class
+com\houselookup\backend\service\FloodRiskService.class
 com\houselookup\backend\service\ReportPdfService.class
 com\houselookup\backend\controller\EpcController.class
 com\houselookup\backend\service\LandRegistryService.class

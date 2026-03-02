@@ -10,6 +10,7 @@ Spring Boot backend that proxies EPC + OS Places lookups to avoid CORS issues an
 - `EPC_API_KEY` (API key from https://epc.opendatacommunities.org/login)
 - `EPC_API_USERNAME` (email/username for the EPC API; when set, backend builds Basic auth using `username:apiKey`)
 - `OS_PLACES_API_KEY` (Ordnance Survey Places API key)
+- `APP_FLOOD_SEARCH_RADIUS_KM` (optional, default `5`; radius for Environment Agency flood checks)
 
 ## Run locally
 ```

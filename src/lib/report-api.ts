@@ -6,6 +6,8 @@ export interface ReportParams {
   uprn: string;
   postcode: string;
   paon?: string;
+  latitude?: number;
+  longitude?: number;
   options: DataOptions;
 }
 
@@ -15,7 +17,7 @@ const parseErrorMessage = async (response: Response) => {
 };
 
 export async function downloadPropertyReport(params: ReportParams): Promise<Blob> {
-  const { uprn, postcode, paon, options } = params;
+  const { uprn, postcode, paon, latitude, longitude, options } = params;
 
   const url = new URL(`${BACKEND_URL}/api/report/pdf`);
   url.searchParams.set("uprn", uprn);
@@ -25,6 +27,13 @@ export async function downloadPropertyReport(params: ReportParams): Promise<Blob
   }
   url.searchParams.set("includeEpc", String(options.epc));
   url.searchParams.set("includePriceHistory", String(options.priceHistory));
+  url.searchParams.set("includeFloodRisk", String(options.floodRisk));
+  if (typeof latitude === "number") {
+    url.searchParams.set("latitude", String(latitude));
+  }
+  if (typeof longitude === "number") {
+    url.searchParams.set("longitude", String(longitude));
+  }
 
   let response: Response;
   try {
