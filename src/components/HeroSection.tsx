@@ -12,7 +12,7 @@ export function HeroSection() {
         commit.
       </p>
 
-      <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl mx-auto">
+      <div className="mt-10 grid grid-cols-3 gap-3 sm:gap-6 max-w-2xl mx-auto">
         {[
           {
             icon: Search,
@@ -32,13 +32,13 @@ export function HeroSection() {
         ].map(({ icon: Icon, title, desc }) => (
           <div
             key={title}
-            className="panel flex flex-col items-center gap-2 py-5"
+            className="panel flex flex-col items-center gap-1.5 sm:gap-2 py-3 sm:py-5 px-2"
           >
-            <div className="h-10 w-10 rounded-full bg-accent flex items-center justify-center">
-              <Icon className="h-5 w-5 text-accent-foreground" />
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-accent flex items-center justify-center">
+              <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-accent-foreground" />
             </div>
-            <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-            <p className="text-xs text-muted-foreground">{desc}</p>
+            <h3 className="text-xs sm:text-sm font-semibold text-foreground">{title}</h3>
+            <p className="text-[11px] sm:text-xs text-muted-foreground hidden sm:block">{desc}</p>
           </div>
         ))}
       </div>
