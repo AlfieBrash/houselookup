@@ -7,6 +7,7 @@ import { DataOptionsSelector, DataOptions } from "@/components/DataOptionsSelect
 import { lookupPostcode } from "@/lib/postcodes-api";
 import { lookupAddressesByPostcode } from "@/lib/os-places";
 import { downloadPropertyReport } from "@/lib/report-api";
+import { HeroSection } from "@/components/HeroSection";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -89,6 +90,9 @@ const Index = () => {
       <AppHeader />
 
       <main className="max-w-3xl mx-auto px-6 py-8">
+        {/* Hero – hidden once a search has been performed */}
+        {!postcodeData && !isLoading && <HeroSection />}
+
         <div className="space-y-6">
           {/* Step 1: Postcode Input */}
           <PostcodeInput
