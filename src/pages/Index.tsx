@@ -85,9 +85,18 @@ const Index = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleReset = () => {
+    setPostcodeData(null);
+    setAddresses(null);
+    setSelectedAddress(null);
+    setPostcodeError(null);
+    setAddressError(null);
+    setCurrentPostcode("");
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader />
+      <AppHeader onReset={handleReset} />
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-3 sm:py-6 md:py-8">
         {/* Hero – hidden once a search has been performed */}
