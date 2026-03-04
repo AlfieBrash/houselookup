@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { PostcodeInput } from "@/components/PostcodeInput";
 import { PostcodeDetails, PostcodeData } from "@/components/PostcodeDetails";
@@ -17,6 +17,7 @@ const Index = () => {
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [currentPostcode, setCurrentPostcode] = useState<string>("");
   const [addressError, setAddressError] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
 
   const handlePostcodeSearch = async (postcode: string) => {
     setIsLoading(true);
@@ -85,14 +86,19 @@ const Index = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleReset = () => {
-    setPostcodeData(null);
-    setAddresses(null);
-    setSelectedAddress(null);
-    setPostcodeError(null);
-    setAddressError(null);
-    setCurrentPostcode("");
-  };
+  const handleReset = useCallback(() => {
+    if (!postcodeData && !isLoading) return;
+    setIsResetting(true);
+    setTimeout(() => {
+      setPostcodeData(null);
+      setAddresses(null);
+      setSelectedAddress(null);
+      setPostcodeError(null);
+      setAddressError(null);
+      setCurrentPostcode("");
+      setIsResetting(false);
+    }, 250);
+  }, [postcodeData, isLoading]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -102,7 +108,7 @@ const Index = () => {
         {/* Hero – hidden once a search has been performed */}
         {!postcodeData && !isLoading && <HeroSection />}
 
-        <div className="space-y-6">
+        <div className={`space-y-6 transition-all duration-250 ease-out ${isResetting ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
           {/* Step 1: Postcode Input */}
           <PostcodeInput
             onSearch={handlePostcodeSearch}
