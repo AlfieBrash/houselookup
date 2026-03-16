@@ -26,3 +26,6 @@ dist-ssr
 
 # API Keys lol
 .env*
+
+# Java/Maven build output
+backend/target/

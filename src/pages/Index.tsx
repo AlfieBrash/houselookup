@@ -1,15 +1,26 @@
 import { useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
+import { HeroSection } from "@/components/HeroSection";
 import { PostcodeInput } from "@/components/PostcodeInput";
 import { PostcodeDetails, PostcodeData } from "@/components/PostcodeDetails";
 import { AddressSelector, Address } from "@/components/AddressSelector";
-import { DataOptionsSelector, DataOptions } from "@/components/DataOptionsSelector";
+import { DataOptions, DataOptionsSelector } from "@/components/DataOptionsSelector";
+import { useAuth } from "@/context/AuthContext";
+import {
+  ReportPreviewResponse,
+  downloadPropertyReportLegacy,
+  downloadReportByToken,
+  prepareReportDownload,
+  previewReport,
+} from "@/lib/report-api";
 import { lookupPostcode } from "@/lib/postcodes-api";
 import { lookupAddressesByPostcode } from "@/lib/os-places";
-import { downloadPropertyReport } from "@/lib/report-api";
-import { HeroSection } from "@/components/HeroSection";
 
 const Index = () => {
+  const { isAuthenticated, credits, refresh } = useAuth();
+  const useLegacyDownload =
+    (import.meta.env.VITE_REPORT_LEGACY_DOWNLOAD_ENABLED as string | undefined) === "true";
+
   const [isLoading, setIsLoading] = useState(false);
   const [postcodeError, setPostcodeError] = useState<string | null>(null);
   const [postcodeData, setPostcodeData] = useState<PostcodeData | null>(null);
@@ -17,6 +28,9 @@ const Index = () => {
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [currentPostcode, setCurrentPostcode] = useState<string>("");
   const [addressError, setAddressError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ReportPreviewResponse | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [prepareLoading, setPrepareLoading] = useState(false);
 
   const handlePostcodeSearch = async (postcode: string) => {
     setIsLoading(true);
@@ -26,9 +40,9 @@ const Index = () => {
     setSelectedAddress(null);
     setCurrentPostcode(postcode);
     setAddressError(null);
+    setPreview(null);
 
     try {
-      // Call real postcodes.io API
       const result = await lookupPostcode(postcode);
 
       setPostcodeData({
@@ -45,13 +59,11 @@ const Index = () => {
         const addressResults = await lookupAddressesByPostcode(postcode);
         setAddresses(addressResults);
       } catch (error) {
-        setAddressError(
-          error instanceof Error ? error.message : "The addresses seem to have gone into hiding. How very British of them."
-        );
+        setAddressError(error instanceof Error ? error.message : "The addresses seem to have gone into hiding.");
         setAddresses([]);
       }
     } catch (error) {
-      setPostcodeError(error instanceof Error ? error.message : "Something went rather wrong there. Stiff upper lip — try again.");
+      setPostcodeError(error instanceof Error ? error.message : "Something went wrong.");
     } finally {
       setIsLoading(false);
     }
@@ -59,30 +71,84 @@ const Index = () => {
 
   const handleAddressSelect = (address: Address) => {
     setSelectedAddress(address);
+    setPreview(null);
   };
 
-  const handleGenerateReport = async (options: DataOptions) => {
+  const buildReportRequestBase = () => {
     if (!selectedAddress) {
       throw new Error("No address selected");
     }
 
-    const pdfBlob = await downloadPropertyReport({
+    return {
       uprn: selectedAddress.uprn,
       postcode: currentPostcode,
-      paon: selectedAddress.line1?.split(" ")[0], // Extract house number
+      paon: selectedAddress.line1?.split(" ")[0],
       latitude: postcodeData?.latitude,
       longitude: postcodeData?.longitude,
-      options,
-    });
+    };
+  };
 
-    const url = URL.createObjectURL(pdfBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `property-report-${selectedAddress.uprn}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handlePreview = async (options: DataOptions) => {
+    const base = buildReportRequestBase();
+    setPreviewLoading(true);
+
+    try {
+      setPreview(null);
+
+      const reportPreview = await previewReport({
+        ...base,
+        options,
+      });
+
+      setPreview(reportPreview);
+      return reportPreview;
+    } catch (err) {
+      throw err;
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handlePrepare = async (options: DataOptions) => {
+    const base = buildReportRequestBase();
+    setPrepareLoading(true);
+    try {
+      if (useLegacyDownload) {
+        const blob = await downloadPropertyReportLegacy({
+          ...base,
+          options,
+        });
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `property-report-${selectedAddress?.uprn}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      const prepared = await prepareReportDownload({
+        ...base,
+        options,
+      });
+
+      const blob = await downloadReportByToken(prepared.downloadToken);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `property-report-${selectedAddress?.uprn}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      await refresh();
+    } finally {
+      setPrepareLoading(false);
+    }
   };
 
   const handleReset = () => {
@@ -92,6 +158,7 @@ const Index = () => {
     setPostcodeError(null);
     setAddressError(null);
     setCurrentPostcode("");
+    setPreview(null);
   };
 
   return (
@@ -99,21 +166,17 @@ const Index = () => {
       <AppHeader onReset={handleReset} />
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-3 sm:py-6 md:py-8">
-        {/* Hero – hidden once a search has been performed */}
         {!postcodeData && !isLoading && <HeroSection />}
 
         <div className="space-y-6">
-          {/* Step 1: Postcode Input */}
           <PostcodeInput
             onSearch={handlePostcodeSearch}
             isLoading={isLoading}
             error={postcodeError}
           />
 
-          {/* Step 2: Postcode Details */}
           {postcodeData && <PostcodeDetails data={postcodeData} />}
 
-          {/* Step 3: Address Selection */}
           {addresses && !selectedAddress && (
             <AddressSelector
               postcode={currentPostcode}
@@ -123,24 +186,34 @@ const Index = () => {
             />
           )}
 
-          {/* Step 4: Data Options + Generate Report */}
           {selectedAddress && (
             <DataOptionsSelector
               address={selectedAddress}
-              onGenerateReport={handleGenerateReport}
+              preview={preview}
+              onPreview={handlePreview}
+              onPrepare={async (options) => {
+                if (!isAuthenticated && options) {
+                  throw new Error("Sign in to download reports.");
+                }
+                await handlePrepare(options);
+              }}
+              useLegacyDownload={useLegacyDownload}
+              isAuthenticated={isAuthenticated}
+              credits={credits}
+              isPreparing={prepareLoading}
+              previewLoading={previewLoading}
+              onOptionsChange={() => {
+                setPreview(null);
+              }}
             />
           )}
         </div>
 
-        {/* Context reminder when address is selected */}
         {selectedAddress && postcodeData && (
           <div className="mt-8 pt-6 border-t border-border fade-in">
             <p className="text-sm text-muted-foreground text-center">
-              Showing results for{" "}
-              <span className="font-medium text-foreground">
-                {postcodeData.postcode}
-              </span>
-              {" · "}
+              Showing results for <span className="font-medium text-foreground">{postcodeData.postcode}</span>
+              <span className="mx-2">·</span>
               <button
                 onClick={() => {
                   setSelectedAddress(null);
@@ -149,13 +222,9 @@ const Index = () => {
               >
                 Change address
               </button>
-              {" · "}
+              <span className="mx-2">·</span>
               <button
-                onClick={() => {
-                  setPostcodeData(null);
-                  setAddresses(null);
-                  setSelectedAddress(null);
-                }}
+                onClick={handleReset}
                 className="text-primary hover:underline"
               >
                 New search

@@ -22,7 +22,9 @@ public class WebConfig implements WebMvcConfigurer {
     registry
         .addMapping("/api/**")
         .allowedOrigins(allowedOrigins.split(","))
-        .allowedMethods("GET");
+        .allowedMethods("GET", "POST", "PATCH", "DELETE", "OPTIONS")
+        .allowedHeaders("*")
+        .allowCredentials(true);
   }
 
   @Bean
