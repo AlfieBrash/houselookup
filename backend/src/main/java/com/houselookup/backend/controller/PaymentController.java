@@ -50,37 +50,46 @@ public class PaymentController {
     }
     User user = authService.requireUser(httpRequest);
     PaymentService.CheckoutSession session = paymentService.createCheckout(user.getId(), request.credits());
-    return new CheckoutResponse(session.checkoutSessionId(), session.checkoutUrl(), session.credits(), session.amountCents());
+    return new CheckoutResponse(session.sessionId(), session.checkoutUrl(), session.credits(), session.amountCents());
   }
 
   @PostMapping("/webhook/stripe")
   public ResponseEntity<Void> stripeWebhook(
       @RequestBody String payload, @RequestHeader("Stripe-Signature") String signatureHeader) {
-    Event event;
-
     try {
-      event = Webhook.constructEvent(payload, signatureHeader, webhookSecret);
+      Event event = Webhook.constructEvent(payload, signatureHeader, webhookSecret);
+      String sessionId = extractCheckoutSessionId(event);
+
+      if (sessionId == null) {
+        return ResponseEntity.ok().build();
+      }
+
+      if ("checkout.session.completed".equals(event.getType())) {
+        paymentService.handleCheckoutSessionCompleted(sessionId);
+      } else if ("checkout.session.expired".equals(event.getType())
+          || "checkout.session.async_payment_failed".equals(event.getType())) {
+        paymentService.handleCheckoutSessionFailed(sessionId);
+      }
+
+      return ResponseEntity.ok().build();
     } catch (SignatureVerificationException e) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid webhook signature.");
+    } catch (RuntimeException e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Malformed webhook payload.", e);
+    }
+  }
+
+  private String extractCheckoutSessionId(Event event) {
+    if (event == null) {
+      return null;
     }
 
-    if ("checkout.session.completed".equals(event.getType())) {
-      Session session = (Session) event.getDataObjectDeserializer().deserializeUnsafe();
-      if (session != null && session.getId() != null) {
-        paymentService.handleCheckoutSessionCompleted(session.getId());
-      }
-      return ResponseEntity.ok().build();
+    Object payloadData = event.getDataObjectDeserializer().deserializeUnsafe();
+    if (!(payloadData instanceof Session)) {
+      return null;
     }
-
-    if ("checkout.session.expired".equals(event.getType())
-        || "checkout.session.async_payment_failed".equals(event.getType())) {
-      Session session = (Session) event.getDataObjectDeserializer().deserializeUnsafe();
-      if (session != null && session.getId() != null) {
-        paymentService.handleCheckoutSessionFailed(session.getId());
-      }
-    }
-
-    return ResponseEntity.ok().build();
+    Session session = (Session) payloadData;
+    return session.getId();
   }
 
   @GetMapping("/credits")

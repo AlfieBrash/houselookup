@@ -64,7 +64,7 @@ public class SessionService {
     return rawToken;
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public Long resolveUserId(HttpServletRequest request) {
     cleanupExpiredSessions();
     Cookie cookie = WebUtils.getCookie(request, authCookieProperties.getCookieName());

@@ -7,10 +7,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
@@ -36,7 +38,7 @@ public class OsPlacesService {
 
     if (apiKey == null || apiKey.isBlank()) {
       throw new IllegalStateException(
-          "OS Places API key missing. Set OS_PLACES_API_KEY to enable lookup.");
+          "OS Places API key missing. Set APP_OS_PLACES_API_KEY to enable lookup.");
     }
 
     String normalised = trimmed.replaceAll("\\s+", "").toUpperCase();
@@ -55,7 +57,20 @@ public class OsPlacesService {
           message == null || message.isBlank() ? "Invalid postcode for OS Places." : message,
           badRequest);
     } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.Forbidden authError) {
-      throw new IllegalStateException("OS Places API key is invalid or lacks access.", authError);
+      throw new ResponseStatusException(
+          HttpStatus.BAD_GATEWAY,
+          "OS Places API key is invalid or lacks access to postcode lookups.",
+          authError);
+    } catch (HttpClientErrorException otherClientError) {
+      String body = otherClientError.getResponseBodyAsString();
+      String detail = body == null || body.isBlank() ? "No details available." : body;
+      throw new ResponseStatusException(
+          HttpStatus.BAD_GATEWAY,
+          "OS Places returned an error: "
+              + otherClientError.getStatusCode()
+              + " "
+              + detail,
+          otherClientError);
     }
     JsonNode root = response.getBody();
     if (root == null || !root.has("results")) {

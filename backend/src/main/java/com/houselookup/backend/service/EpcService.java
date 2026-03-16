@@ -41,7 +41,7 @@ public class EpcService {
 
   public Optional<Map<String, Object>> fetchByUprn(String uprn) {
     if (apiKey == null || apiKey.isBlank()) {
-      throw new IllegalStateException("EPC API key missing. Set EPC_API_KEY to enable lookup.");
+      throw new IllegalStateException("EPC API key missing. Set APP_EPC_API_KEY and APP_EPC_USERNAME to enable lookup.");
     }
 
     HttpHeaders headers = new HttpHeaders();
