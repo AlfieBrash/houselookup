@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { HeroSection } from "@/components/HeroSection";
 import { PostcodeInput } from "@/components/PostcodeInput";
@@ -30,7 +30,6 @@ const Index = () => {
   const [addressError, setAddressError] = useState<string | null>(null);
   const [preview, setPreview] = useState<ReportPreviewResponse | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [prepareLoading, setPrepareLoading] = useState(false);
 
   const handlePostcodeSearch = async (postcode: string) => {
     setIsLoading(true);
@@ -169,6 +168,7 @@ const Index = () => {
         {!postcodeData && !isLoading && <HeroSection />}
 
         <div className="space-y-6">
+          {/* Step 1: Postcode Input */}
           <PostcodeInput
             onSearch={handlePostcodeSearch}
             isLoading={isLoading}
@@ -238,3 +238,4 @@ const Index = () => {
 };
 
 export default Index;
+
