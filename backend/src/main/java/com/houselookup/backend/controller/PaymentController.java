@@ -4,6 +4,7 @@ import com.houselookup.backend.model.User;
 import com.houselookup.backend.service.AuthService;
 import com.houselookup.backend.service.CreditService;
 import com.houselookup.backend.service.PaymentService;
+import com.stripe.exception.EventDataObjectDeserializationException;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
 import com.stripe.model.checkout.Session;
@@ -100,7 +101,13 @@ public class PaymentController {
       return null;
     }
 
-    Object payloadData = event.getDataObjectDeserializer().deserializeUnsafe();
+    Object payloadData;
+    try {
+      payloadData = event.getDataObjectDeserializer().deserializeUnsafe();
+    } catch (EventDataObjectDeserializationException e) {
+      return null;
+    }
+
     if (!(payloadData instanceof Session)) {
       return null;
     }
