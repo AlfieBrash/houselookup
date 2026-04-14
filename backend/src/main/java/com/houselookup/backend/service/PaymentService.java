@@ -72,6 +72,10 @@ public class PaymentService {
     return packs;
   }
 
+  public boolean isValidCreditPack(int credits) {
+    return credits > 0 && availablePacks.containsKey(credits);
+  }
+
   @Transactional
   public CheckoutSession createCheckout(long userId, int credits) {
     if (stripeSecretKey == null || stripeSecretKey.isBlank()) {

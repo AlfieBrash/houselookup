@@ -1,13 +1,18 @@
-﻿import { Link } from "react-router-dom";
-import { CircleDollarSign, Home, LogIn } from "lucide-react";
+import { Link } from "react-router-dom";
+import { CircleDollarSign, Home, LogIn, Wrench } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/context/AuthContext";
 
 interface AppHeaderProps {
   onReset?: () => void;
+  stubEnabled?: boolean;
+  stubPostcode?: string;
+  onToggleStub?: () => void;
 }
 
-export function AppHeader({ onReset }: AppHeaderProps) {
+export function AppHeader({ onReset, stubEnabled = false, stubPostcode, onToggleStub }: AppHeaderProps) {
   const { isAuthenticated, userEmail, credits } = useAuth();
 
   return (
@@ -27,6 +32,25 @@ export function AppHeader({ onReset }: AppHeaderProps) {
             </div>
           </button>
           <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onToggleStub}
+                  aria-label={stubEnabled ? "Disable OS Places stub mode" : "Enable OS Places stub mode"}
+                  aria-pressed={stubEnabled}
+                  className={stubEnabled ? "bg-accent text-primary hover:bg-accent/80" : ""}
+                >
+                  <Wrench className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              {stubEnabled && stubPostcode ? (
+                <TooltipContent side="bottom">
+                  <p>Developer mode</p>
+                </TooltipContent>
+              ) : null}
+            </Tooltip>
             <ThemeToggle />
             <Link
               to="/credits"

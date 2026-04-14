@@ -13,6 +13,10 @@ export interface CheckoutResponse {
   amountCents: number;
 }
 
+export interface CreditBalanceResponse {
+  credits: number;
+}
+
 const parseError = async (response: Response) => {
   const text = await response.text();
   return text || "Could not start checkout.";
@@ -32,6 +36,23 @@ export async function getPricing(): Promise<CreditPack[]> {
 
 export async function createCheckout(credits: number): Promise<CheckoutResponse> {
   const response = await fetch(`${BACKEND_URL}/api/payments/checkout`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ credits }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+
+  return response.json();
+}
+
+export async function createDevTopup(credits: number): Promise<CreditBalanceResponse> {
+  const response = await fetch(`${BACKEND_URL}/api/payments/dev-topup`, {
     method: "POST",
     credentials: "include",
     headers: {

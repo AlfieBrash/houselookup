@@ -1,16 +1,19 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { createCheckout, getPricing } from "@/lib/payment-api";
+import { createCheckout, createDevTopup, getPricing } from "@/lib/payment-api";
 import { useAuth } from "@/context/AuthContext";
+import { isDeveloperModeEnabled } from "@/lib/dev-mode";
 
 const Credits = () => {
   const { isAuthenticated, refresh, credits, loading, userEmail } = useAuth();
   const [packs, setPacks] = useState<Array<{ credits: number; amountCents: number; currency: string }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [developerModeEnabled, setDeveloperModeEnabled] = useState(false);
 
   useEffect(() => {
+    setDeveloperModeEnabled(isDeveloperModeEnabled());
     getPricing()
       .then(setPacks)
       .catch((err) => setError(err instanceof Error ? err.message : "Could not load credit packs."));
@@ -37,12 +40,19 @@ const Credits = () => {
   const buy = async (creditsToBuy: number) => {
     setError(null);
     setBusy(true);
+
     try {
+      if (developerModeEnabled) {
+        await createDevTopup(creditsToBuy);
+        await refresh();
+        return;
+      }
+
       const checkout = await createCheckout(creditsToBuy);
       window.location.href = checkout.checkoutUrl;
-      await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start checkout.");
+    } finally {
       setBusy(false);
     }
   };
@@ -58,14 +68,21 @@ const Credits = () => {
 
         <div className="panel space-y-3">
           <h2 className="font-medium">Choose a pack</h2>
+          {developerModeEnabled && (
+            <p className="helper-text">
+              Developer mode is enabled. Buying a pack adds credits instantly without Stripe.
+            </p>
+          )}
           {packs.map((pack) => (
             <div key={pack.credits} className="flex items-center justify-between border-b border-border pb-2">
               <div>
                 <p className="text-sm font-medium">{pack.credits} credits</p>
-                <p className="text-xs text-muted-foreground">{(pack.amountCents / 100).toFixed(2)} {pack.currency}</p>
+                <p className="text-xs text-muted-foreground">
+                  {(pack.amountCents / 100).toFixed(2)} {pack.currency}
+                </p>
               </div>
               <Button onClick={() => buy(pack.credits)} disabled={busy}>
-                Buy
+                {developerModeEnabled ? "Add instantly" : "Buy"}
               </Button>
             </div>
           ))}

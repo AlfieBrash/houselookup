@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { HeroSection } from "@/components/HeroSection";
 import { PostcodeInput } from "@/components/PostcodeInput";
@@ -6,6 +6,7 @@ import { PostcodeDetails, PostcodeData } from "@/components/PostcodeDetails";
 import { AddressSelector, Address } from "@/components/AddressSelector";
 import { DataOptions, DataOptionsSelector } from "@/components/DataOptionsSelector";
 import { useAuth } from "@/context/AuthContext";
+import { DEV_MODE_STORAGE_KEY } from "@/lib/dev-mode";
 import {
   ReportPreviewResponse,
   downloadPropertyReportLegacy,
@@ -14,7 +15,7 @@ import {
   previewReport,
 } from "@/lib/report-api";
 import { lookupPostcode } from "@/lib/postcodes-api";
-import { lookupAddressesByPostcode } from "@/lib/os-places";
+import { lookupAddressesByPostcode, OS_PLACES_STUB_POSTCODE } from "@/lib/os-places";
 
 const Index = () => {
   const { isAuthenticated, credits, refresh } = useAuth();
@@ -30,6 +31,26 @@ const Index = () => {
   const [addressError, setAddressError] = useState<string | null>(null);
   const [preview, setPreview] = useState<ReportPreviewResponse | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [prepareLoading, setPrepareLoading] = useState(false);
+  const [useOsPlacesStub, setUseOsPlacesStub] = useState<boolean>(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.localStorage.getItem(DEV_MODE_STORAGE_KEY) === "true";
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(DEV_MODE_STORAGE_KEY, String(useOsPlacesStub));
+  }, [useOsPlacesStub]);
+
+  const handleStubToggle = (enabled: boolean) => {
+    setUseOsPlacesStub(enabled);
+    setAddresses(null);
+    setSelectedAddress(null);
+    setAddressError(null);
+    setPreview(null);
+  };
 
   const handlePostcodeSearch = async (postcode: string) => {
     setIsLoading(true);
@@ -55,7 +76,9 @@ const Index = () => {
       });
 
       try {
-        const addressResults = await lookupAddressesByPostcode(postcode);
+        const addressResults = await lookupAddressesByPostcode(postcode, {
+          useStub: useOsPlacesStub,
+        });
         setAddresses(addressResults);
       } catch (error) {
         setAddressError(error instanceof Error ? error.message : "The addresses seem to have gone into hiding.");
@@ -111,6 +134,7 @@ const Index = () => {
   const handlePrepare = async (options: DataOptions) => {
     const base = buildReportRequestBase();
     setPrepareLoading(true);
+
     try {
       if (useLegacyDownload) {
         const blob = await downloadPropertyReportLegacy({
@@ -162,13 +186,17 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader onReset={handleReset} />
+      <AppHeader
+        onReset={handleReset}
+        stubEnabled={useOsPlacesStub}
+        stubPostcode={OS_PLACES_STUB_POSTCODE}
+        onToggleStub={() => handleStubToggle(!useOsPlacesStub)}
+      />
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-3 sm:py-6 md:py-8">
         {!postcodeData && !isLoading && <HeroSection />}
 
         <div className="space-y-6">
-          {/* Step 1: Postcode Input */}
           <PostcodeInput
             onSearch={handlePostcodeSearch}
             isLoading={isLoading}
@@ -195,6 +223,7 @@ const Index = () => {
                 if (!isAuthenticated && options) {
                   throw new Error("Sign in to download reports.");
                 }
+
                 await handlePrepare(options);
               }}
               useLegacyDownload={useLegacyDownload}
@@ -213,7 +242,7 @@ const Index = () => {
           <div className="mt-8 pt-6 border-t border-border fade-in">
             <p className="text-sm text-muted-foreground text-center">
               Showing results for <span className="font-medium text-foreground">{postcodeData.postcode}</span>
-              <span className="mx-2">·</span>
+              <span className="mx-2">.</span>
               <button
                 onClick={() => {
                   setSelectedAddress(null);
@@ -222,7 +251,7 @@ const Index = () => {
               >
                 Change address
               </button>
-              <span className="mx-2">·</span>
+              <span className="mx-2">.</span>
               <button
                 onClick={handleReset}
                 className="text-primary hover:underline"
@@ -238,4 +267,3 @@ const Index = () => {
 };
 
 export default Index;
-

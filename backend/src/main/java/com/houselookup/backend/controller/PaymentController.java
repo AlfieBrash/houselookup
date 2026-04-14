@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -31,6 +30,9 @@ public class PaymentController {
 
   @Value("${app.payment.webhook.secret:}")
   private String webhookSecret;
+
+  @Value("${app.payment.dev-topup-enabled:true}")
+  private boolean devTopupEnabled;
 
   public PaymentController(PaymentService paymentService, AuthService authService, CreditService creditService) {
     this.paymentService = paymentService;
@@ -51,6 +53,20 @@ public class PaymentController {
     User user = authService.requireUser(httpRequest);
     PaymentService.CheckoutSession session = paymentService.createCheckout(user.getId(), request.credits());
     return new CheckoutResponse(session.sessionId(), session.checkoutUrl(), session.credits(), session.amountCents());
+  }
+
+  @PostMapping("/dev-topup")
+  public CreditResponse createDevTopup(@RequestBody CheckoutRequest request, HttpServletRequest httpRequest) {
+    if (!devTopupEnabled) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Developer top-up is disabled.");
+    }
+    if (request == null || !paymentService.isValidCreditPack(request.credits())) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid credit pack.");
+    }
+
+    User user = authService.requireUser(httpRequest);
+    creditService.addCredits(user.getId(), request.credits());
+    return new CreditResponse(creditService.getBalance(user.getId()));
   }
 
   @PostMapping("/webhook/stripe")
