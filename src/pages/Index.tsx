@@ -17,6 +17,14 @@ import {
 import { lookupPostcode } from "@/lib/postcodes-api";
 import { lookupAddressesByPostcode, OS_PLACES_STUB_POSTCODE } from "@/lib/os-places";
 
+const reportOptions: DataOptions = {
+  epc: true,
+  priceHistory: true,
+  floodRisk: true,
+  schoolsCatchment: false,
+  crimeStats: true,
+};
+
 const Index = () => {
   const { isAuthenticated, credits, refresh } = useAuth();
   const useLegacyDownload =
@@ -30,6 +38,7 @@ const Index = () => {
   const [currentPostcode, setCurrentPostcode] = useState<string>("");
   const [addressError, setAddressError] = useState<string | null>(null);
   const [preview, setPreview] = useState<ReportPreviewResponse | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [prepareLoading, setPrepareLoading] = useState(false);
   const [useOsPlacesStub, setUseOsPlacesStub] = useState<boolean>(() => {
@@ -50,6 +59,7 @@ const Index = () => {
     setSelectedAddress(null);
     setAddressError(null);
     setPreview(null);
+    setPreviewError(null);
   };
 
   const handlePostcodeSearch = async (postcode: string) => {
@@ -61,6 +71,7 @@ const Index = () => {
     setCurrentPostcode(postcode);
     setAddressError(null);
     setPreview(null);
+    setPreviewError(null);
 
     try {
       const result = await lookupPostcode(postcode);
@@ -91,9 +102,27 @@ const Index = () => {
     }
   };
 
-  const handleAddressSelect = (address: Address) => {
+  const handleAddressSelect = async (address: Address) => {
     setSelectedAddress(address);
     setPreview(null);
+    setPreviewError(null);
+    setPreviewLoading(true);
+
+    try {
+      const reportPreview = await previewReport({
+        uprn: address.uprn,
+        postcode: currentPostcode,
+        paon: address.line1?.split(" ")[0],
+        latitude: postcodeData?.latitude,
+        longitude: postcodeData?.longitude,
+        options: reportOptions,
+      });
+      setPreview(reportPreview);
+    } catch (error) {
+      setPreviewError(error instanceof Error ? error.message : "Could not check report data.");
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const buildReportRequestBase = () => {
@@ -108,27 +137,6 @@ const Index = () => {
       latitude: postcodeData?.latitude,
       longitude: postcodeData?.longitude,
     };
-  };
-
-  const handlePreview = async (options: DataOptions) => {
-    const base = buildReportRequestBase();
-    setPreviewLoading(true);
-
-    try {
-      setPreview(null);
-
-      const reportPreview = await previewReport({
-        ...base,
-        options,
-      });
-
-      setPreview(reportPreview);
-      return reportPreview;
-    } catch (err) {
-      throw err;
-    } finally {
-      setPreviewLoading(false);
-    }
   };
 
   const handlePrepare = async (options: DataOptions) => {
@@ -218,7 +226,6 @@ const Index = () => {
             <DataOptionsSelector
               address={selectedAddress}
               preview={preview}
-              onPreview={handlePreview}
               onPrepare={async (options) => {
                 if (!isAuthenticated && options) {
                   throw new Error("Sign in to download reports.");
@@ -226,14 +233,13 @@ const Index = () => {
 
                 await handlePrepare(options);
               }}
+              previewError={previewError}
+              reportOptions={reportOptions}
               useLegacyDownload={useLegacyDownload}
               isAuthenticated={isAuthenticated}
               credits={credits}
               isPreparing={prepareLoading}
               previewLoading={previewLoading}
-              onOptionsChange={() => {
-                setPreview(null);
-              }}
             />
           )}
         </div>

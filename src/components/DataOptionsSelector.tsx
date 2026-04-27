@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Address } from "@/components/AddressSelector";
-import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, XCircle } from "lucide-react";
 import { ReportPreviewResponse } from "@/lib/report-api";
 
 export interface DataOptions {
@@ -17,17 +15,17 @@ export interface DataOptions {
 interface DataOptionsSelectorProps {
   address: Address;
   preview: ReportPreviewResponse | null;
-  onPreview: (options: DataOptions) => Promise<ReportPreviewResponse>;
   onPrepare: (options: DataOptions) => Promise<void>;
+  previewError?: string | null;
+  reportOptions: DataOptions;
   isAuthenticated: boolean;
   useLegacyDownload?: boolean;
   credits: number;
   isPreparing?: boolean;
   previewLoading?: boolean;
-  onOptionsChange?: (options: DataOptions) => void;
 }
 
-const dataOptionsList = [
+const dataAvailabilityList = [
   {
     id: "epc" as const,
     label: "Environmental Performance",
@@ -44,76 +42,47 @@ const dataOptionsList = [
     id: "floodRisk" as const,
     label: "Flood Risk Assessment",
     description: "Environment Agency active flood alerts and warnings",
-    available: true,
-  },
-  {
-    id: "schoolsCatchment" as const,
-    label: "Schools & Catchment",
-    description: "Nearby schools and catchment areas",
-    available: false,
   },
   {
     id: "crimeStats" as const,
     label: "Crime Statistics",
     description: "Local crime data from Police UK",
-    available: true,
   },
 ];
-
-const defaultOptions: DataOptions = dataOptionsList.reduce(
-  (defaults, option) => {
-    defaults[option.id] = option.available;
-    return defaults;
-  },
-  {
-    epc: false,
-    priceHistory: false,
-    floodRisk: false,
-    schoolsCatchment: false,
-    crimeStats: false,
-  }
-);
 
 export function DataOptionsSelector({
   address,
   preview,
-  onPreview,
   onPrepare,
+  previewError,
+  reportOptions,
   isAuthenticated,
   useLegacyDownload = false,
   credits,
   isPreparing = false,
   previewLoading = false,
-  onOptionsChange,
 }: DataOptionsSelectorProps) {
-  const [options, setOptions] = useState<DataOptions>(defaultOptions);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const hasSelectedOptions = Object.values(options).some((value) => value);
-
-  const handleOptionChange = (optionId: keyof DataOptions, checked: boolean) => {
-    const next = { ...options, [optionId]: checked };
-    setOptions(next);
-    setSuccess(false);
-    onOptionsChange?.(next);
-  };
-
-  const handlePreview = async () => {
-    if (!hasSelectedOptions) return;
-    setError(null);
-    setSuccess(false);
-    try {
-      await onPreview(options);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not preview report.");
-    }
-  };
+  const downloadOptions: DataOptions | null = preview
+    ? {
+        ...reportOptions,
+        epc: preview.epcAvailable,
+        priceHistory: preview.priceHistoryAvailable,
+        floodRisk: preview.floodRiskAvailable,
+        schoolsCatchment: false,
+        crimeStats: preview.crimeStatsAvailable,
+      }
+    : null;
 
   const handlePrepare = async () => {
-    if (!hasSelectedOptions) return;
     if (!preview) {
-      setError("Run a preview first, then download.");
+      setError("Report data is still being checked. Try again in a moment.");
+      return;
+    }
+    if (preview.availableSectionCount === 0) {
+      setError("No report data was found for this address.");
       return;
     }
     if (!isAuthenticated) {
@@ -127,7 +96,7 @@ export function DataOptionsSelector({
 
     setError(null);
     try {
-      await onPrepare(options);
+      await onPrepare(downloadOptions ?? reportOptions);
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not prepare download.");
@@ -140,18 +109,20 @@ export function DataOptionsSelector({
     return parts.filter(Boolean).join(", ");
   };
 
-  const availabilityIndicatorClass = (requested: boolean, available: boolean) => {
-    if (!requested) {
-      return "text-muted-foreground";
+  const isDataAvailable = (id: (typeof dataAvailabilityList)[number]["id"]) => {
+    if (!preview) {
+      return false;
     }
-    return available ? "text-success" : "text-destructive";
-  };
-
-  const availabilityIconClass = (requested: boolean, available: boolean) => {
-    if (!requested) {
-      return "text-muted-foreground";
+    switch (id) {
+      case "epc":
+        return preview.epcAvailable;
+      case "priceHistory":
+        return preview.priceHistoryAvailable;
+      case "floodRisk":
+        return preview.floodRiskAvailable;
+      case "crimeStats":
+        return preview.crimeStatsAvailable;
     }
-    return available ? "text-success" : "text-destructive";
   };
 
   return (
@@ -170,41 +141,47 @@ export function DataOptionsSelector({
         </div>
 
         <div className="pt-4 border-t border-border">
-          <h3 className="text-sm font-medium text-foreground mb-4">Select data to include</h3>
+          <h3 className="text-sm font-medium text-foreground mb-4">Report data found</h3>
 
           <div className="space-y-3">
-            {dataOptionsList.map((option) => {
-              const isChecked = options[option.id];
-              const isDisabled = !option.available;
+            {dataAvailabilityList.map((option) => {
+              const available = isDataAvailable(option.id);
 
               return (
                 <div
                   key={option.id}
                   className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
-                    isDisabled
-                      ? "border-border bg-muted/30 opacity-60"
-                      : isChecked
-                        ? "border-primary/30 bg-primary/5"
-                        : "border-border hover:border-primary/20"
+                    previewLoading || !preview
+                      ? "border-border bg-muted/30"
+                      : available
+                        ? "border-success/30 bg-success/5"
+                        : "border-destructive/30 bg-destructive/5"
                   }`}
                 >
-                  <Checkbox
-                    id={option.id}
-                    checked={isChecked}
-                    onCheckedChange={(checked) =>
-                      handleOptionChange(option.id, checked as boolean)
-                    }
-                    disabled={isDisabled}
-                    className="mt-0.5"
-                  />
+                  {previewLoading || !preview ? (
+                    <Loader2 className="h-4 w-4 mt-0.5 text-muted-foreground animate-spin" />
+                  ) : available ? (
+                    <CheckCircle className="h-4 w-4 mt-0.5 text-success" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mt-0.5 text-destructive" />
+                  )}
                   <div className="flex-1 min-w-0">
-                    <Label
-                      htmlFor={option.id}
-                      className={`flex items-center gap-2 text-sm font-medium cursor-pointer ${isDisabled ? "cursor-not-allowed" : ""}`}
-                    >
-                      {option.label}
-                      {isDisabled && <span className="text-xs text-muted-foreground font-normal">(coming soon)</span>}
-                    </Label>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-foreground">
+                        {option.label}
+                      </p>
+                      <span
+                        className={`text-xs font-medium ${
+                          previewLoading || !preview
+                            ? "text-muted-foreground"
+                            : available
+                              ? "text-success"
+                              : "text-destructive"
+                        }`}
+                      >
+                        {previewLoading || !preview ? "checking..." : available ? "found" : "not found"}
+                      </span>
+                    </div>
                     <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
                   </div>
                 </div>
@@ -214,20 +191,9 @@ export function DataOptionsSelector({
         </div>
 
         <div className="flex flex-col gap-2 pt-4 border-t border-border">
-          <Button onClick={handlePreview} disabled={previewLoading || !hasSelectedOptions} className="w-full h-11" variant="outline">
-            {previewLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Previewing...
-              </>
-            ) : (
-              "Preview Report"
-            )}
-          </Button>
-
           <Button
             onClick={handlePrepare}
-            disabled={isPreparing || !hasSelectedOptions || !preview}
+            disabled={isPreparing || previewLoading || !preview || preview.availableSectionCount === 0}
             className="w-full h-11"
           >
             {isPreparing ? (
@@ -247,73 +213,27 @@ export function DataOptionsSelector({
 
           <p className="helper-text text-center">
             {useLegacyDownload
-              ? "Preview is free. Legacy download is available until paywall enforcement is enabled."
-              : "Preview is free. Download requires 1 credit per report."}
+              ? "Data check is free. Legacy download is available until paywall enforcement is enabled."
+              : "Data check is free. Download requires 1 credit per report."}
           </p>
 
           {preview ? (
             <div className="space-y-3 text-xs">
-              <div className="space-y-1">
-                <p className="font-medium text-foreground">Data availability</p>
-                <p className={availabilityIndicatorClass(preview.requested.includeEpc, preview.epcAvailable)}>
-                  <CheckCircle
-                    className={`h-3 w-3 inline mr-1 ${availabilityIconClass(preview.requested.includeEpc, preview.epcAvailable)}`}
-                  />
-                  Environmental Performance:{" "}
-                  {preview.requested.includeEpc
-                    ? preview.epcAvailable
-                      ? "found"
-                      : "not found"
-                    : "not requested"}
-                </p>
-                <p className={availabilityIndicatorClass(preview.requested.includePriceHistory, preview.priceHistoryAvailable)}>
-                  <CheckCircle
-                    className={`h-3 w-3 inline mr-1 ${availabilityIconClass(preview.requested.includePriceHistory, preview.priceHistoryAvailable)}`}
-                  />
-                  Historical Prices:{" "}
-                  {preview.requested.includePriceHistory
-                    ? preview.priceHistoryAvailable
-                      ? "found"
-                      : "not found"
-                    : "not requested"}
-                </p>
-                <p className={availabilityIndicatorClass(preview.requested.includeFloodRisk, preview.floodRiskAvailable)}>
-                  <CheckCircle
-                    className={`h-3 w-3 inline mr-1 ${availabilityIconClass(preview.requested.includeFloodRisk, preview.floodRiskAvailable)}`}
-                  />
-                  Flood Risk:{" "}
-                  {preview.requested.includeFloodRisk
-                    ? preview.floodRiskAvailable
-                      ? "found"
-                      : "not found"
-                    : "not requested"}
-                </p>
-                <p className={availabilityIndicatorClass(preview.requested.includeCrimeStats, preview.crimeStatsAvailable)}>
-                  <CheckCircle
-                    className={`h-3 w-3 inline mr-1 ${availabilityIconClass(preview.requested.includeCrimeStats, preview.crimeStatsAvailable)}`}
-                  />
-                  Crime Statistics:{" "}
-                  {preview.requested.includeCrimeStats
-                    ? preview.crimeStatsAvailable
-                      ? "found"
-                      : "not found"
-                    : "not requested"}
-                </p>
-              </div>
-
               {preview.availableSectionCount === 0 && <p className="text-destructive">No matching data sections found.</p>}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">Run a preview before downloading.</p>
+            <p className="text-xs text-muted-foreground">
+              {previewLoading ? "Checking what data is available..." : "Data availability has not been checked yet."}
+            </p>
           )}
 
           {isAuthenticated && <p className="text-xs text-muted-foreground">Balance: {credits} credit{credits === 1 ? "" : "s"}</p>}
         </div>
 
-        {error && (
+        {(previewError || error) && (
           <div className="error-inline fade-in flex items-start gap-2">
             <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-            <span>{error}</span>
+            <span>{error || previewError}</span>
           </div>
         )}
       </div>
