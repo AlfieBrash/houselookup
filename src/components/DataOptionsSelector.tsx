@@ -56,7 +56,7 @@ const dataOptionsList = [
     id: "crimeStats" as const,
     label: "Crime Statistics",
     description: "Local crime data from Police UK",
-    available: false,
+    available: true,
   },
 ];
 
@@ -284,6 +284,17 @@ export function DataOptionsSelector({
                   Flood Risk:{" "}
                   {preview.requested.includeFloodRisk
                     ? preview.floodRiskAvailable
+                      ? "found"
+                      : "not found"
+                    : "not requested"}
+                </p>
+                <p className={availabilityIndicatorClass(preview.requested.includeCrimeStats, preview.crimeStatsAvailable)}>
+                  <CheckCircle
+                    className={`h-3 w-3 inline mr-1 ${availabilityIconClass(preview.requested.includeCrimeStats, preview.crimeStatsAvailable)}`}
+                  />
+                  Crime Statistics:{" "}
+                  {preview.requested.includeCrimeStats
+                    ? preview.crimeStatsAvailable
                       ? "found"
                       : "not found"
                     : "not requested"}

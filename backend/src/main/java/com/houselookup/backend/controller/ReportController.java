@@ -7,6 +7,7 @@ import com.houselookup.backend.service.CreditService;
 import com.houselookup.backend.service.EpcService;
 import com.houselookup.backend.service.FloodRiskService;
 import com.houselookup.backend.service.LandRegistryService;
+import com.houselookup.backend.service.PoliceCrimeService;
 import com.houselookup.backend.service.ReportPdfService;
 import com.houselookup.backend.service.ReportTokenService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,6 +35,7 @@ public class ReportController {
   private final EpcService epcService;
   private final LandRegistryService landRegistryService;
   private final FloodRiskService floodRiskService;
+  private final PoliceCrimeService policeCrimeService;
   private final ReportPdfService reportPdfService;
   private final AuthService authService;
   private final CreditService creditService;
@@ -46,6 +48,7 @@ public class ReportController {
       EpcService epcService,
       LandRegistryService landRegistryService,
       FloodRiskService floodRiskService,
+      PoliceCrimeService policeCrimeService,
       ReportPdfService reportPdfService,
       AuthService authService,
       CreditService creditService,
@@ -53,6 +56,7 @@ public class ReportController {
     this.epcService = epcService;
     this.landRegistryService = landRegistryService;
     this.floodRiskService = floodRiskService;
+    this.policeCrimeService = policeCrimeService;
     this.reportPdfService = reportPdfService;
     this.authService = authService;
     this.creditService = creditService;
@@ -67,31 +71,46 @@ public class ReportController {
       @RequestParam(defaultValue = "true") boolean includeEpc,
       @RequestParam(defaultValue = "true") boolean includePriceHistory,
       @RequestParam(defaultValue = "false") boolean includeFloodRisk,
+      @RequestParam(defaultValue = "false") boolean includeCrimeStats,
       @RequestParam(required = false) Double latitude,
       @RequestParam(required = false) Double longitude) {
 
-    if (!hasAnySelection(includeEpc, includePriceHistory, includeFloodRisk)) {
+    if (!hasAnySelection(includeEpc, includePriceHistory, includeFloodRisk, includeCrimeStats)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select at least one data section to preview.");
     }
 
     ReportInputs inputs =
-        normalizeInputs(uprn, postcode, paon, includeEpc, includePriceHistory, includeFloodRisk, latitude, longitude);
+        normalizeInputs(
+            uprn,
+            postcode,
+            paon,
+            includeEpc,
+            includePriceHistory,
+            includeFloodRisk,
+            includeCrimeStats,
+            latitude,
+            longitude);
     ReportData data = fetchReportData(inputs);
 
     boolean epcAvailable = data.epcData() != null;
     boolean priceHistoryAvailable = isPriceHistoryAvailable(data.priceHistory());
     boolean floodRiskAvailable = isFloodRiskAvailable(data.floodRiskData());
+    boolean crimeStatsAvailable = isCrimeStatsAvailable(data.crimeStatsData());
 
     int sections =
-        (epcAvailable ? 1 : 0) + (priceHistoryAvailable ? 1 : 0) + (floodRiskAvailable ? 1 : 0);
+        (epcAvailable ? 1 : 0)
+            + (priceHistoryAvailable ? 1 : 0)
+            + (floodRiskAvailable ? 1 : 0)
+            + (crimeStatsAvailable ? 1 : 0);
 
     return new ReportPreviewResponse(
         inputs,
         epcAvailable,
         priceHistoryAvailable,
         floodRiskAvailable,
+        crimeStatsAvailable,
         sections,
-        estimateSummary(epcAvailable, priceHistoryAvailable, floodRiskAvailable));
+        estimateSummary(epcAvailable, priceHistoryAvailable, floodRiskAvailable, crimeStatsAvailable));
   }
 
   @PostMapping("/prepare")
@@ -102,17 +121,27 @@ public class ReportController {
       @RequestParam(defaultValue = "true") boolean includeEpc,
       @RequestParam(defaultValue = "true") boolean includePriceHistory,
       @RequestParam(defaultValue = "false") boolean includeFloodRisk,
+      @RequestParam(defaultValue = "false") boolean includeCrimeStats,
       @RequestParam(required = false) Double latitude,
       @RequestParam(required = false) Double longitude,
       HttpServletRequest request) {
 
     User user = authService.requireUser(request);
-    if (!hasAnySelection(includeEpc, includePriceHistory, includeFloodRisk)) {
+    if (!hasAnySelection(includeEpc, includePriceHistory, includeFloodRisk, includeCrimeStats)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select at least one data section to prepare.");
     }
 
     ReportInputs inputs =
-        normalizeInputs(uprn, postcode, paon, includeEpc, includePriceHistory, includeFloodRisk, latitude, longitude);
+        normalizeInputs(
+            uprn,
+            postcode,
+            paon,
+            includeEpc,
+            includePriceHistory,
+            includeFloodRisk,
+            includeCrimeStats,
+            latitude,
+            longitude);
 
     if (!creditService.consumeOne(user.getId())) {
       throw new ResponseStatusException(HttpStatus.PAYMENT_REQUIRED, "Insufficient credits.");
@@ -128,6 +157,7 @@ public class ReportController {
       payload.put("includeEpc", inputs.includeEpc());
       payload.put("includePriceHistory", inputs.includePriceHistory());
       payload.put("includeFloodRisk", inputs.includeFloodRisk());
+      payload.put("includeCrimeStats", inputs.includeCrimeStats());
       if (inputs.latitude() != null) {
         payload.put("latitude", inputs.latitude());
       }
@@ -155,6 +185,7 @@ public class ReportController {
       @RequestParam(defaultValue = "true") boolean includeEpc,
       @RequestParam(defaultValue = "true") boolean includePriceHistory,
       @RequestParam(defaultValue = "false") boolean includeFloodRisk,
+      @RequestParam(defaultValue = "false") boolean includeCrimeStats,
       @RequestParam(required = false) Double latitude,
       @RequestParam(required = false) Double longitude) {
 
@@ -171,7 +202,16 @@ public class ReportController {
     }
 
     ReportInputs inputs =
-        normalizeInputs(uprn, postcode, paon, includeEpc, includePriceHistory, includeFloodRisk, latitude, longitude);
+        normalizeInputs(
+            uprn,
+            postcode,
+            paon,
+            includeEpc,
+            includePriceHistory,
+            includeFloodRisk,
+            includeCrimeStats,
+            latitude,
+            longitude);
     return servePdf(inputs);
   }
 
@@ -220,6 +260,7 @@ public class ReportController {
           data.epcData(),
           data.priceHistory(),
           data.floodRiskData(),
+          data.crimeStatsData(),
           inputs.postcode());
     } catch (Exception e) {
       throw new ResponseStatusException(
@@ -242,6 +283,7 @@ public class ReportController {
       boolean includeEpc,
       boolean includePriceHistory,
       boolean includeFloodRisk,
+      boolean includeCrimeStats,
       Double latitude,
       Double longitude) {
     if (uprn == null || uprn.trim().isEmpty()) {
@@ -257,6 +299,7 @@ public class ReportController {
         includeEpc,
         includePriceHistory,
         includeFloodRisk,
+        includeCrimeStats,
         latitude,
         longitude);
   }
@@ -280,11 +323,20 @@ public class ReportController {
       floodRiskData = floodRiskService.fetchAssessment(inputs.latitude(), inputs.longitude());
     }
 
-    return new ReportData(epcData, priceHistory, floodRiskData);
+    Map<String, Object> crimeStatsData = null;
+    if (inputs.includeCrimeStats()) {
+      crimeStatsData = policeCrimeService.fetchAssessment(inputs.latitude(), inputs.longitude());
+    }
+
+    return new ReportData(epcData, priceHistory, floodRiskData, crimeStatsData);
   }
 
-  private boolean hasAnySelection(boolean includeEpc, boolean includePriceHistory, boolean includeFloodRisk) {
-    return includeEpc || includePriceHistory || includeFloodRisk;
+  private boolean hasAnySelection(
+      boolean includeEpc,
+      boolean includePriceHistory,
+      boolean includeFloodRisk,
+      boolean includeCrimeStats) {
+    return includeEpc || includePriceHistory || includeFloodRisk || includeCrimeStats;
   }
 
   private boolean isPriceHistoryAvailable(List<Map<String, Object>> priceHistory) {
@@ -292,10 +344,18 @@ public class ReportController {
   }
 
   private boolean isFloodRiskAvailable(Map<String, Object> floodRiskData) {
-    if (floodRiskData == null) {
+    return isAvailableFlagTrue(floodRiskData);
+  }
+
+  private boolean isCrimeStatsAvailable(Map<String, Object> crimeStatsData) {
+    return isAvailableFlagTrue(crimeStatsData);
+  }
+
+  private boolean isAvailableFlagTrue(Map<String, Object> data) {
+    if (data == null) {
       return false;
     }
-    Object available = floodRiskData.get("available");
+    Object available = data.get("available");
     if (available instanceof Boolean) {
       return (Boolean) available;
     }
@@ -305,7 +365,8 @@ public class ReportController {
   private boolean hasNoAvailableData(ReportData data) {
     return data.epcData() == null
         && !isPriceHistoryAvailable(data.priceHistory())
-        && !isFloodRiskAvailable(data.floodRiskData());
+        && !isFloodRiskAvailable(data.floodRiskData())
+        && !isCrimeStatsAvailable(data.crimeStatsData());
   }
 
   private ReportInputs readInputs(String payloadJson) {
@@ -317,6 +378,7 @@ public class ReportController {
         parseBoolean(payload.get("includeEpc"), true),
         parseBoolean(payload.get("includePriceHistory"), true),
         parseBoolean(payload.get("includeFloodRisk"), false),
+        parseBoolean(payload.get("includeCrimeStats"), false),
         parseDouble(payload.get("latitude")),
         parseDouble(payload.get("longitude")));
   }
@@ -363,29 +425,47 @@ public class ReportController {
     return text;
   }
 
-  private String estimateSummary(boolean epcAvailable, boolean priceHistoryAvailable, boolean floodRiskAvailable) {
-    if (epcAvailable && priceHistoryAvailable && floodRiskAvailable) {
-      return "EPC, price history and flood risk data available.";
-    }
-    if (epcAvailable && priceHistoryAvailable) {
-      return "EPC and price history available.";
-    }
-    if (epcAvailable && floodRiskAvailable) {
-      return "EPC and flood risk available.";
-    }
-    if (priceHistoryAvailable && floodRiskAvailable) {
-      return "Price history and flood risk available.";
-    }
+  private String estimateSummary(
+      boolean epcAvailable,
+      boolean priceHistoryAvailable,
+      boolean floodRiskAvailable,
+      boolean crimeStatsAvailable) {
+    List<String> availableSections = new java.util.ArrayList<>();
     if (epcAvailable) {
-      return "EPC data available.";
+      availableSections.add("EPC");
     }
     if (priceHistoryAvailable) {
-      return "Price history data available.";
+      availableSections.add("price history");
     }
     if (floodRiskAvailable) {
-      return "Flood risk data available.";
+      availableSections.add("flood risk");
     }
-    return "Limited data available.";
+    if (crimeStatsAvailable) {
+      availableSections.add("crime data");
+    }
+
+    if (availableSections.isEmpty()) {
+      return "Limited data available.";
+    }
+    if (availableSections.size() == 1) {
+      return availableSections.get(0).substring(0, 1).toUpperCase()
+          + availableSections.get(0).substring(1)
+          + " available.";
+    }
+    if (availableSections.size() == 2) {
+      return availableSections.get(0) + " and " + availableSections.get(1) + " available.";
+    }
+
+    StringBuilder summary = new StringBuilder();
+    for (int i = 0; i < availableSections.size(); i++) {
+      if (i > 0) {
+        summary.append(i == availableSections.size() - 1 ? " and " : ", ");
+      }
+      summary.append(availableSections.get(i));
+    }
+    summary.append(" available.");
+    summary.setCharAt(0, Character.toUpperCase(summary.charAt(0)));
+    return summary.toString();
   }
 
   private String buildReportFilename(ReportData data, String postcode) {
@@ -458,17 +538,22 @@ public class ReportController {
       boolean includeEpc,
       boolean includePriceHistory,
       boolean includeFloodRisk,
+      boolean includeCrimeStats,
       Double latitude,
       Double longitude) {}
 
   private record ReportData(
-      Map<String, Object> epcData, List<Map<String, Object>> priceHistory, Map<String, Object> floodRiskData) {}
+      Map<String, Object> epcData,
+      List<Map<String, Object>> priceHistory,
+      Map<String, Object> floodRiskData,
+      Map<String, Object> crimeStatsData) {}
 
   public record ReportPreviewResponse(
       ReportInputs requested,
       boolean epcAvailable,
       boolean priceHistoryAvailable,
       boolean floodRiskAvailable,
+      boolean crimeStatsAvailable,
       int availableSectionCount,
       String summary) {}
 

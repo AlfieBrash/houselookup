@@ -394,6 +394,50 @@
       border-bottom: none;
     }
 
+    .crime-summary-grid {
+      display: table;
+      width: 100%;
+      border: 1px solid #e2ddd6;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    .crime-summary-row {
+      display: table-row;
+    }
+
+    .crime-summary-cell {
+      display: table-cell;
+      width: 33%;
+      padding: 10px 12px;
+      border-right: 1px solid #e2ddd6;
+      vertical-align: top;
+    }
+
+    .crime-summary-cell:last-child {
+      border-right: none;
+    }
+
+    .crime-summary-label {
+      font-size: 8pt;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 4px;
+    }
+
+    .crime-summary-value {
+      font-size: 10pt;
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .crime-summary-text {
+      margin-bottom: 10px;
+      font-size: 9pt;
+      color: #4b5563;
+    }
+
     .no-data {
       padding: 20px;
       text-align: center;
@@ -719,7 +763,63 @@
       </div>
     </div>
 
-    <div th:if="${not hasPriceHistory and not hasEpc and not hasFloodRisk}" class="no-data">
+    <!-- Crime Statistics Section -->
+    <div th:if="${hasCrimeStats}" class="section">
+      <div class="section-header">Crime Statistics (Police UK)</div>
+
+      <div th:if="${crimeStats['periodLabel'] != null}">
+        <div class="crime-summary-grid">
+          <div class="crime-summary-row">
+            <div class="crime-summary-cell">
+              <div class="crime-summary-label">Period Covered</div>
+              <div class="crime-summary-value" th:text="${crimeStats['periodLabel']} ?: (${crimeStats['month']} ?: 'Latest available')">Jan 2025 to Dec 2025</div>
+            </div>
+            <div class="crime-summary-cell">
+              <div class="crime-summary-label">Total Reported Crimes</div>
+              <div class="crime-summary-value" th:text="${crimeStats.totalCrimes}">0</div>
+            </div>
+            <div class="crime-summary-cell">
+              <div class="crime-summary-label">Monthly Average</div>
+              <div class="crime-summary-value">
+                <span th:text="${crimeStats['monthlyAverage']} ?: '0'">15.3</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="crime-summary-text" th:text="${crimeStats.summary}">
+          No street-level crimes were returned for the selected location.
+        </div>
+        <div class="crime-summary-text" th:if="${crimeStats['monthlyAverageSummary'] != null}" th:text="${crimeStats['monthlyAverageSummary']}">
+          That is an average of 15.3 reported crimes per month.
+        </div>
+
+        <table class="warning-table" th:if="${not #lists.isEmpty(crimeStats.categories)}">
+          <thead>
+          <tr>
+            <th>Category</th>
+            <th>Reported Crimes</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr th:each="category : ${crimeStats.categories}">
+            <td th:text="${category.label}">Burglary</td>
+            <td th:text="${category.count}">4</td>
+          </tr>
+          </tbody>
+        </table>
+
+        <div th:if="${#lists.isEmpty(crimeStats.categories)}" class="no-data">
+          No street-level crimes were reported for the period near this location.
+        </div>
+      </div>
+
+      <div th:unless="${crimeStats['periodLabel'] != null}" class="no-data">
+        <span th:text="${crimeStats.summary}">Crime data is temporarily unavailable.</span>
+      </div>
+    </div>
+
+    <div th:if="${not hasPriceHistory and not hasEpc and not hasFloodRisk and not hasCrimeStats}" class="no-data">
       No data available for this property.
     </div>
 
@@ -736,6 +836,10 @@
       </div>
       <div th:if="${hasFloodRisk}" class="footer-line">
         Flood data: Environment Agency Flood Monitoring API
+      </div>
+      <div th:if="${hasCrimeStats}" class="footer-line">
+        Crime data: Police UK street-level crime API. Figures cover the latest <span th:text="${crimeStats['reportingMonths']} ?: 12">12</span> available monthly datasets within about 1 mile of the property.
+        <span th:if="${crimeStats['requestedReportingMonths'] != null and crimeStats['reportingMonths'] < crimeStats['requestedReportingMonths']}"> Some monthly datasets were unavailable when this report was generated.</span>
       </div>
     </div>
   </div>

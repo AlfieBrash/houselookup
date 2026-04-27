@@ -25,6 +25,7 @@ public class ReportPdfService {
    * @param epcData EPC certificate data (may be null)
    * @param priceHistory list of price paid records (may be null or empty)
    * @param floodRiskData flood risk assessment data (may be null)
+   * @param crimeStatsData crime assessment data (may be null)
    * @param postcode the property postcode
    * @return PDF bytes
    */
@@ -32,6 +33,7 @@ public class ReportPdfService {
       Map<String, Object> epcData,
       List<Map<String, Object>> priceHistory,
       Map<String, Object> floodRiskData,
+      Map<String, Object> crimeStatsData,
       String postcode)
       throws IOException, DocumentException {
 
@@ -39,10 +41,12 @@ public class ReportPdfService {
     context.setVariable("epc", epcData);
     context.setVariable("priceHistory", priceHistory);
     context.setVariable("floodRisk", floodRiskData);
+    context.setVariable("crimeStats", crimeStatsData);
     context.setVariable("postcode", postcode);
     context.setVariable("hasEpc", epcData != null);
     context.setVariable("hasPriceHistory", priceHistory != null && !priceHistory.isEmpty());
     context.setVariable("hasFloodRisk", floodRiskData != null);
+    context.setVariable("hasCrimeStats", crimeStatsData != null);
 
     String html = templateEngine.process("property-report", context);
 

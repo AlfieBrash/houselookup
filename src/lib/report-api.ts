@@ -11,6 +11,7 @@ export interface ReportInputs {
   includeEpc: boolean;
   includePriceHistory: boolean;
   includeFloodRisk: boolean;
+  includeCrimeStats: boolean;
 }
 
 export interface ReportParams {
@@ -30,12 +31,14 @@ export interface ReportPreviewResponse {
     includeEpc: boolean;
     includePriceHistory: boolean;
     includeFloodRisk: boolean;
+    includeCrimeStats: boolean;
     latitude?: number;
     longitude?: number;
   };
   epcAvailable: boolean;
   priceHistoryAvailable: boolean;
   floodRiskAvailable: boolean;
+  crimeStatsAvailable: boolean;
   availableSectionCount: number;
   summary: string;
 }
@@ -61,6 +64,7 @@ const toParams = (params: ReportParams, path = "/api/report/preview") => {
   url.searchParams.set("includeEpc", String(options.epc));
   url.searchParams.set("includePriceHistory", String(options.priceHistory));
   url.searchParams.set("includeFloodRisk", String(options.floodRisk));
+  url.searchParams.set("includeCrimeStats", String(options.crimeStats));
   if (typeof params.latitude === "number") {
     url.searchParams.set("latitude", String(params.latitude));
   }
@@ -96,6 +100,7 @@ export async function prepareReportDownload(params: ReportParams): Promise<Repor
   form.set("includeEpc", String(params.options.epc));
   form.set("includePriceHistory", String(params.options.priceHistory));
   form.set("includeFloodRisk", String(params.options.floodRisk));
+  form.set("includeCrimeStats", String(params.options.crimeStats));
   if (typeof params.latitude === "number") {
     form.set("latitude", String(params.latitude));
   }
