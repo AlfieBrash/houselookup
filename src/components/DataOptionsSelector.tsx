@@ -60,6 +60,20 @@ const dataOptionsList = [
   },
 ];
 
+const defaultOptions: DataOptions = dataOptionsList.reduce(
+  (defaults, option) => {
+    defaults[option.id] = option.available;
+    return defaults;
+  },
+  {
+    epc: false,
+    priceHistory: false,
+    floodRisk: false,
+    schoolsCatchment: false,
+    crimeStats: false,
+  }
+);
+
 export function DataOptionsSelector({
   address,
   preview,
@@ -72,13 +86,7 @@ export function DataOptionsSelector({
   previewLoading = false,
   onOptionsChange,
 }: DataOptionsSelectorProps) {
-  const [options, setOptions] = useState<DataOptions>({
-    epc: true,
-    priceHistory: true,
-    floodRisk: false,
-    schoolsCatchment: false,
-    crimeStats: false,
-  });
+  const [options, setOptions] = useState<DataOptions>(defaultOptions);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
