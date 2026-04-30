@@ -12,8 +12,9 @@ interface AppHeaderProps {
   onToggleStub?: () => void;
 }
 
-export function AppHeader({ onReset, stubEnabled = false, stubPostcode, onToggleStub }: AppHeaderProps) {
+export function AppHeader({ onReset, stubEnabled = false, onToggleStub }: AppHeaderProps) {
   const { isAuthenticated, userEmail, credits } = useAuth();
+  const developerTooltipText = stubEnabled ? "Leave developer mode" : "Switch to developer mode";
 
   return (
     <header className="border-b border-border bg-card">
@@ -45,11 +46,9 @@ export function AppHeader({ onReset, stubEnabled = false, stubPostcode, onToggle
                   <Wrench className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
-              {stubEnabled && stubPostcode ? (
-                <TooltipContent side="bottom">
-                  <p>Developer mode</p>
-                </TooltipContent>
-              ) : null}
+              <TooltipContent side="bottom">
+                <p>{developerTooltipText}</p>
+              </TooltipContent>
             </Tooltip>
             <ThemeToggle />
             <Link
