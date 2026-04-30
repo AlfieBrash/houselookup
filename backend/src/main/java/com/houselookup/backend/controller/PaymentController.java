@@ -32,7 +32,7 @@ public class PaymentController {
   @Value("${app.payment.webhook.secret:}")
   private String webhookSecret;
 
-  @Value("${app.payment.dev-topup-enabled:true}")
+  @Value("${app.payment.dev-topup-enabled:false}")
   private boolean devTopupEnabled;
 
   public PaymentController(PaymentService paymentService, AuthService authService, CreditService creditService) {
@@ -91,6 +91,8 @@ public class PaymentController {
       return ResponseEntity.ok().build();
     } catch (SignatureVerificationException e) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid webhook signature.");
+    } catch (ResponseStatusException e) {
+      throw e;
     } catch (RuntimeException e) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Malformed webhook payload.", e);
     }
