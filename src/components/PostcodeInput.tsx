@@ -75,14 +75,14 @@ export function PostcodeInput({ onSearch, isLoading, error }: PostcodeInputProps
   };
 
   return (
-    <div className="panel slide-in">
+    <div className="panel slide-in p-5 sm:p-6">
       <div className="space-y-4">
         <div>
           <label htmlFor="postcode" className="block text-sm font-medium text-foreground mb-2">
             Postcode
           </label>
-          <div className="flex gap-3">
-            <div className="relative flex-1">
+          <div className="flex flex-col gap-3 md:flex-row">
+            <div className="relative min-w-0 flex-1">
               <Input
                 id="postcode"
                 type="text"
@@ -102,7 +102,7 @@ export function PostcodeInput({ onSearch, isLoading, error }: PostcodeInputProps
             <Button
               onClick={handleSearch}
               disabled={!isValidPostcode || isLoading}
-              className="h-12 px-5"
+              className="h-12 w-full px-5 md:w-auto"
             >
               <Search className="h-4 w-4 mr-2" />
               Search

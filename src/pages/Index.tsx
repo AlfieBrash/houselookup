@@ -192,8 +192,54 @@ const Index = () => {
     setPreview(null);
   };
 
+  const showInitialHero = !postcodeData && !isLoading;
+
+  const postcodeSearch = (
+    <PostcodeInput
+      onSearch={handlePostcodeSearch}
+      isLoading={isLoading}
+      error={postcodeError}
+    />
+  );
+
+  const resultSections = (
+    <>
+      {postcodeData && <PostcodeDetails data={postcodeData} />}
+
+      {addresses && !selectedAddress && (
+        <AddressSelector
+          postcode={currentPostcode}
+          addresses={addresses}
+          onSelect={handleAddressSelect}
+          error={addressError}
+        />
+      )}
+
+      {selectedAddress && (
+        <DataOptionsSelector
+          address={selectedAddress}
+          preview={preview}
+          onPrepare={async (options) => {
+            if (!isAuthenticated && options) {
+              throw new Error("Sign in to download reports.");
+            }
+
+            await handlePrepare(options);
+          }}
+          previewError={previewError}
+          reportOptions={reportOptions}
+          useLegacyDownload={useLegacyDownload}
+          isAuthenticated={isAuthenticated}
+          credits={credits}
+          isPreparing={prepareLoading}
+          previewLoading={previewLoading}
+        />
+      )}
+    </>
+  );
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen overflow-x-hidden bg-background">
       <AppHeader
         onReset={handleReset}
         stubEnabled={useOsPlacesStub}
@@ -202,47 +248,19 @@ const Index = () => {
       />
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-3 sm:py-6 md:py-8">
-        {!postcodeData && !isLoading && <HeroSection />}
-
-        <div className="space-y-6">
-          <PostcodeInput
-            onSearch={handlePostcodeSearch}
-            isLoading={isLoading}
-            error={postcodeError}
-          />
-
-          {postcodeData && <PostcodeDetails data={postcodeData} />}
-
-          {addresses && !selectedAddress && (
-            <AddressSelector
-              postcode={currentPostcode}
-              addresses={addresses}
-              onSelect={handleAddressSelect}
-              error={addressError}
-            />
-          )}
-
-          {selectedAddress && (
-            <DataOptionsSelector
-              address={selectedAddress}
-              preview={preview}
-              onPrepare={async (options) => {
-                if (!isAuthenticated && options) {
-                  throw new Error("Sign in to download reports.");
-                }
-
-                await handlePrepare(options);
-              }}
-              previewError={previewError}
-              reportOptions={reportOptions}
-              useLegacyDownload={useLegacyDownload}
-              isAuthenticated={isAuthenticated}
-              credits={credits}
-              isPreparing={prepareLoading}
-              previewLoading={previewLoading}
-            />
-          )}
-        </div>
+        {showInitialHero ? (
+          <div className="flex flex-col gap-4 md:block">
+            <div className="order-2 md:order-none">
+              <HeroSection />
+            </div>
+            <div className="order-1 md:order-none">{postcodeSearch}</div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {postcodeSearch}
+            {resultSections}
+          </div>
+        )}
 
         {selectedAddress && postcodeData && (
           <div className="mt-8 pt-6 border-t border-border fade-in">

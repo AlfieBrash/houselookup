@@ -1,47 +1,53 @@
-import { Search, FileText, Shield } from "lucide-react";
+import { FileText, Search, Shield } from "lucide-react";
+
+const features = [
+  {
+    icon: Search,
+    title: "Search by postcode",
+    desc: "Find any UK address instantly",
+  },
+  {
+    icon: FileText,
+    title: "Instant report",
+    desc: "EPC, flood risk & sale prices",
+  },
+  {
+    icon: Shield,
+    title: "Spot red flags",
+    desc: "Know the risks before you pay",
+  },
+];
 
 export function HeroSection() {
   return (
-    <section className="py-4 sm:py-8 md:py-12 text-center fade-in">
-      <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
+    <section className="py-4 text-center fade-in sm:py-8 md:py-12">
+      <h2 className="text-2xl font-bold leading-tight tracking-normal text-foreground sm:text-3xl md:text-4xl">
         Your property red-flag detector
       </h2>
-      <p className="mt-2 sm:mt-3 text-sm sm:text-base md:text-lg text-muted-foreground max-w-xl mx-auto">
+      <p className="mx-auto mt-2 max-w-[32rem] text-sm leading-6 text-muted-foreground sm:mt-3 sm:text-base md:text-lg md:leading-8">
         Thinking of buying or renting in the UK? Get a quick sanity check on any
-        property — EPC ratings, flood risk, sale history and more — before you
-        commit.
+        property, including EPC ratings, flood risk, sale history and more,
+        before you commit.
       </p>
 
-      <div className="mt-4 sm:mt-6 md:mt-10 grid grid-cols-3 gap-2 sm:gap-4 md:gap-6 max-w-2xl mx-auto">
-        {[
-        {
-          icon: Search,
-          title: "Search by postcode",
-          desc: "Find any UK address instantly"
-        },
-        {
-          icon: FileText,
-          title: "Instant report",
-          desc: "EPC, flood risk & sale prices"
-        },
-        {
-          icon: Shield,
-          title: "Spot red flags",
-          desc: "Know the risks before you pay"
-        }].
-        map(({ icon: Icon, title, desc }) =>
-        <div
-          key={title}
-          className="panel flex flex-col items-center gap-1.5 sm:gap-2 py-3 sm:py-5 px-0">
-          
-            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-accent flex items-center justify-center">
-              <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-accent-foreground" />
+      <div className="mx-auto mt-4 grid max-w-md grid-cols-1 gap-2.5 sm:mt-6 sm:max-w-2xl sm:grid-cols-3 sm:gap-4 md:mt-10 md:gap-6">
+        {features.map(({ icon: Icon, title, desc }) => (
+          <div
+            key={title}
+            className="panel flex items-center gap-3 p-3 text-left sm:flex-col sm:gap-2 sm:px-3 sm:py-5 sm:text-center"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent">
+              <Icon className="h-4 w-4 text-accent-foreground sm:h-5 sm:w-5" />
             </div>
-            <h3 className="text-xs sm:text-sm font-semibold text-foreground">{title}</h3>
-            <p className="text-[11px] sm:text-xs text-muted-foreground hidden sm:block">{desc}</p>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+              <p className="mt-0.5 text-xs leading-5 text-muted-foreground sm:mt-0 sm:leading-normal">
+                {desc}
+              </p>
+            </div>
           </div>
-        )}
+        ))}
       </div>
-    </section>);
-
+    </section>
+  );
 }
