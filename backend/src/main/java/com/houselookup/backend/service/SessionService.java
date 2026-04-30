@@ -6,12 +6,15 @@ import com.houselookup.backend.repository.UserRepository;
 import com.houselookup.backend.repository.UserSessionRepository;
 import com.houselookup.backend.util.AuthCookieProperties;
 import com.houselookup.backend.util.SecurityUtil;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +22,8 @@ import org.springframework.web.util.WebUtils;
 
 @Service
 public class SessionService {
+  private static final Logger log = LoggerFactory.getLogger(SessionService.class);
+
   private final UserSessionRepository sessionRepository;
   private final UserRepository userRepository;
   private final AuthCookieProperties authCookieProperties;
@@ -30,6 +35,16 @@ public class SessionService {
     this.sessionRepository = sessionRepository;
     this.userRepository = userRepository;
     this.authCookieProperties = authCookieProperties;
+  }
+
+  @PostConstruct
+  void logConfiguration() {
+    log.info(
+        "Auth cookie configured name={} secure={} sameSite={} ttlDays={}",
+        authCookieProperties.getCookieName(),
+        authCookieProperties.isCookieSecure(),
+        authCookieProperties.getCookieSameSite(),
+        authCookieProperties.getCookieTtlDays());
   }
 
   @Transactional
@@ -49,7 +64,8 @@ public class SessionService {
     UserSession session = new UserSession(user, tokenHash, expiry, now);
     session.setIp(ipAddress);
     session.setUserAgent(userAgent);
-    sessionRepository.save(session);
+    session = sessionRepository.save(session);
+    log.info("Session created userId={} sessionId={} expiresAt={}", userId, session.getId(), expiry);
 
     clearSessionCookie(response);
     ResponseCookie cookie =
@@ -84,7 +100,16 @@ public class SessionService {
     Cookie cookie = WebUtils.getCookie(request, authCookieProperties.getCookieName());
     if (cookie != null && cookie.getValue() != null && !cookie.getValue().trim().isEmpty()) {
       String hashed = SecurityUtil.hash(cookie.getValue());
-      sessionRepository.findBySessionTokenHash(hashed).ifPresent(sessionRepository::delete);
+      sessionRepository
+          .findBySessionTokenHash(hashed)
+          .ifPresent(
+              session -> {
+                sessionRepository.delete(session);
+                log.info(
+                    "Session destroyed userId={} sessionId={}",
+                    session.getUser().getId(),
+                    session.getId());
+              });
     }
     clearSessionCookie(response);
   }
@@ -103,6 +128,9 @@ public class SessionService {
 
   @Transactional
   public void cleanupExpiredSessions() {
-    sessionRepository.deleteExpired(Instant.now());
+    int deleted = sessionRepository.deleteExpired(Instant.now());
+    if (deleted > 0) {
+      log.info("Expired sessions cleaned up count={}", deleted);
+    }
   }
 }

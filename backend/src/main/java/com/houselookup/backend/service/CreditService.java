@@ -5,11 +5,15 @@ import com.houselookup.backend.model.UserCredits;
 import com.houselookup.backend.repository.UserCreditsRepository;
 import com.houselookup.backend.repository.UserRepository;
 import java.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CreditService {
+  private static final Logger log = LoggerFactory.getLogger(CreditService.class);
+
   private final UserCreditsRepository userCreditsRepository;
   private final UserRepository userRepository;
 
@@ -31,6 +35,7 @@ public class CreditService {
     UserCredits credits = new UserCredits(user);
     credits.setUpdatedAt(Instant.now());
     userCreditsRepository.save(credits);
+    log.info("Credit row created userId={}", userId);
   }
 
   @Transactional(readOnly = true)
@@ -52,8 +57,16 @@ public class CreditService {
     if (credits == null) {
       throw new IllegalStateException("Could not add credits.");
     }
-    credits.setBalance(Integer.valueOf(credits.getBalance() + amount));
+    int previousBalance = credits.getBalance();
+    int newBalance = previousBalance + amount;
+    credits.setBalance(Integer.valueOf(newBalance));
     credits.setUpdatedAt(Instant.now());
+    log.info(
+        "Credits added userId={} amount={} previousBalance={} newBalance={}",
+        userId,
+        amount,
+        previousBalance,
+        newBalance);
   }
 
   @Transactional
@@ -61,10 +74,18 @@ public class CreditService {
     ensureRow(userId);
     UserCredits credits = userCreditsRepository.findForUpdateByUserId(userId);
     if (credits == null || credits.getBalance() < 1) {
+      log.warn("Credit consume rejected userId={} reason=insufficient_credits", userId);
       return false;
     }
-    credits.setBalance(credits.getBalance() - 1);
+    int previousBalance = credits.getBalance();
+    int newBalance = previousBalance - 1;
+    credits.setBalance(newBalance);
     credits.setUpdatedAt(Instant.now());
+    log.info(
+        "Credit consumed userId={} amount=1 previousBalance={} newBalance={}",
+        userId,
+        previousBalance,
+        newBalance);
     return true;
   }
 }

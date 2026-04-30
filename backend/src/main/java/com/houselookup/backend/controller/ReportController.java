@@ -17,6 +17,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,6 +33,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/report")
 public class ReportController {
+  private static final Logger log = LoggerFactory.getLogger(ReportController.class);
 
   private final EpcService epcService;
   private final LandRegistryService landRegistryService;
@@ -76,6 +79,7 @@ public class ReportController {
       @RequestParam(required = false) Double longitude) {
 
     if (!hasAnySelection(includeEpc, includePriceHistory, includeFloodRisk, includeCrimeStats)) {
+      log.warn("Report preview rejected reason=no_sections_selected");
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select at least one data section to preview.");
     }
 
@@ -90,6 +94,14 @@ public class ReportController {
             includeCrimeStats,
             latitude,
             longitude);
+    log.info(
+        "Report preview requested uprn={} postcode={} includeEpc={} includePriceHistory={} includeFloodRisk={} includeCrimeStats={}",
+        redactIdentifier(inputs.uprn()),
+        redactPostcode(inputs.postcode()),
+        inputs.includeEpc(),
+        inputs.includePriceHistory(),
+        inputs.includeFloodRisk(),
+        inputs.includeCrimeStats());
     ReportData data = fetchReportData(inputs);
 
     boolean epcAvailable = data.epcData() != null;
@@ -103,14 +115,21 @@ public class ReportController {
             + (floodRiskAvailable ? 1 : 0)
             + (crimeStatsAvailable ? 1 : 0);
 
-    return new ReportPreviewResponse(
-        inputs,
-        epcAvailable,
-        priceHistoryAvailable,
-        floodRiskAvailable,
-        crimeStatsAvailable,
-        sections,
-        estimateSummary(epcAvailable, priceHistoryAvailable, floodRiskAvailable, crimeStatsAvailable));
+    ReportPreviewResponse response =
+        new ReportPreviewResponse(
+            inputs,
+            epcAvailable,
+            priceHistoryAvailable,
+            floodRiskAvailable,
+            crimeStatsAvailable,
+            sections,
+            estimateSummary(epcAvailable, priceHistoryAvailable, floodRiskAvailable, crimeStatsAvailable));
+    log.info(
+        "Report preview completed uprn={} postcode={} availableSectionCount={}",
+        redactIdentifier(inputs.uprn()),
+        redactPostcode(inputs.postcode()),
+        sections);
+    return response;
   }
 
   @PostMapping("/prepare")
@@ -128,6 +147,7 @@ public class ReportController {
 
     User user = authService.requireUser(request);
     if (!hasAnySelection(includeEpc, includePriceHistory, includeFloodRisk, includeCrimeStats)) {
+      log.warn("Report download prepare rejected userId={} reason=no_sections_selected", user.getId());
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select at least one data section to prepare.");
     }
 
@@ -142,8 +162,18 @@ public class ReportController {
             includeCrimeStats,
             latitude,
             longitude);
+    log.info(
+        "Report download prepare requested userId={} uprn={} postcode={} includeEpc={} includePriceHistory={} includeFloodRisk={} includeCrimeStats={}",
+        user.getId(),
+        redactIdentifier(inputs.uprn()),
+        redactPostcode(inputs.postcode()),
+        inputs.includeEpc(),
+        inputs.includePriceHistory(),
+        inputs.includeFloodRisk(),
+        inputs.includeCrimeStats());
 
     if (!creditService.consumeOne(user.getId())) {
+      log.warn("Report download prepare rejected userId={} reason=insufficient_credits", user.getId());
       throw new ResponseStatusException(HttpStatus.PAYMENT_REQUIRED, "Insufficient credits.");
     }
 
@@ -169,10 +199,22 @@ public class ReportController {
           tokenService.createToken(user, payload);
 
       String encoded = URLEncoder.encode(token, StandardCharsets.UTF_8);
+      log.info(
+          "Report download prepared userId={} uprn={} postcode={}",
+          user.getId(),
+          redactIdentifier(inputs.uprn()),
+          redactPostcode(inputs.postcode()));
       return new ReportPrepareResponse(token, "/api/report/pdf?token=" + encoded);
     } catch (RuntimeException e) {
       creditService.addCredits(user.getId(), 1);
-      throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not create download token.");
+      log.error(
+          "Report download prepare failed and credit was refunded userId={} uprn={} postcode={}",
+          user.getId(),
+          redactIdentifier(inputs.uprn()),
+          redactPostcode(inputs.postcode()),
+          e);
+      throw new ResponseStatusException(
+          HttpStatus.INTERNAL_SERVER_ERROR, "Could not create download token.", e);
     }
   }
 
@@ -190,14 +232,17 @@ public class ReportController {
       @RequestParam(required = false) Double longitude) {
 
     if (token != null && !token.isBlank()) {
+      log.info("Report PDF requested using download token");
       return downloadByToken(token);
     }
 
     if (!legacyDownloadEnabled) {
+      log.warn("Report PDF legacy request rejected reason=legacy_download_disabled");
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Token is required for report downloads.");
     }
 
     if (uprn == null || postcode == null) {
+      log.warn("Report PDF legacy request rejected reason=missing_required_inputs");
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "UPRN and postcode are required for legacy download.");
     }
 
@@ -216,7 +261,21 @@ public class ReportController {
   }
 
   private ResponseEntity<byte[]> downloadByToken(String token) {
-    ReportDownloadToken tokenRecord = tokenService.claimToken(token);
+    ReportDownloadToken tokenRecord;
+    try {
+      tokenRecord = tokenService.claimToken(token);
+    } catch (IllegalArgumentException e) {
+      log.warn("Report PDF token download rejected reason={}", e.getMessage());
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
+    } catch (IllegalStateException e) {
+      log.warn("Report PDF token download rejected reason={}", e.getMessage());
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+    }
+
+    log.info(
+        "Report PDF token download started tokenId={} userId={}",
+        tokenRecord.getId(),
+        tokenRecord.getUser().getId());
 
     try {
       ReportInputs inputs = readInputs(tokenRecord.getRequestPayloadJson());
@@ -228,13 +287,30 @@ public class ReportController {
 
       byte[] bytes = buildPdf(inputs, data);
       tokenService.markCompleted(tokenRecord);
+      log.info(
+          "Report PDF token download completed tokenId={} userId={} bytes={}",
+          tokenRecord.getId(),
+          tokenRecord.getUser().getId(),
+          bytes.length);
       return servePdfResponse(bytes, buildReportFilename(data, inputs.postcode()));
     } catch (ResponseStatusException ex) {
+      log.warn(
+          "Report PDF token download failed tokenId={} userId={} status={} message={}",
+          tokenRecord.getId(),
+          tokenRecord.getUser().getId(),
+          ex.getStatusCode().value(),
+          ex.getReason());
       handleTokenDownloadFailure(tokenRecord, ex.getMessage());
       throw ex;
     } catch (Exception ex) {
+      log.error(
+          "Report PDF token download failed tokenId={} userId={}",
+          tokenRecord.getId(),
+          tokenRecord.getUser().getId(),
+          ex);
       handleTokenDownloadFailure(tokenRecord, "Failed to generate report.");
-      throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to generate report.");
+      throw new ResponseStatusException(
+          HttpStatus.INTERNAL_SERVER_ERROR, "Failed to generate report.", ex);
     }
   }
 
@@ -242,15 +318,28 @@ public class ReportController {
     tokenService.markFailed(tokenRecord, message == null ? "Failed to generate report." : message);
     if (tokenRecord.getUser() != null) {
       creditService.addCredits(tokenRecord.getUser().getId(), 1);
+      log.info(
+          "Report PDF token download credit refunded tokenId={} userId={}",
+          tokenRecord.getId(),
+          tokenRecord.getUser().getId());
     }
   }
 
   private ResponseEntity<byte[]> servePdf(ReportInputs inputs) {
+    log.info(
+        "Report PDF legacy download started uprn={} postcode={}",
+        redactIdentifier(inputs.uprn()),
+        redactPostcode(inputs.postcode()));
     ReportData data = fetchReportData(inputs);
     if (hasNoAvailableData(data)) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No data found for this property.");
     }
     byte[] bytes = buildPdf(inputs, data);
+    log.info(
+        "Report PDF legacy download completed uprn={} postcode={} bytes={}",
+        redactIdentifier(inputs.uprn()),
+        redactPostcode(inputs.postcode()),
+        bytes.length);
     return servePdfResponse(bytes, buildReportFilename(data, inputs.postcode()));
   }
 
@@ -263,8 +352,13 @@ public class ReportController {
           data.crimeStatsData(),
           inputs.postcode());
     } catch (Exception e) {
+      log.error(
+          "Report PDF generation failed uprn={} postcode={}",
+          redactIdentifier(inputs.uprn()),
+          redactPostcode(inputs.postcode()),
+          e);
       throw new ResponseStatusException(
-          HttpStatus.INTERNAL_SERVER_ERROR, "Failed to generate PDF: " + e.getMessage());
+          HttpStatus.INTERNAL_SERVER_ERROR, "Failed to generate PDF: " + e.getMessage(), e);
     }
   }
 
@@ -287,9 +381,11 @@ public class ReportController {
       Double latitude,
       Double longitude) {
     if (uprn == null || uprn.trim().isEmpty()) {
+      log.warn("Report request rejected reason=missing_uprn");
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "UPRN is required.");
     }
     if (postcode == null || postcode.trim().isEmpty()) {
+      log.warn("Report request rejected reason=missing_postcode");
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Postcode is required.");
     }
     return new ReportInputs(
@@ -328,6 +424,14 @@ public class ReportController {
       crimeStatsData = policeCrimeService.fetchAssessment(inputs.latitude(), inputs.longitude());
     }
 
+    log.info(
+        "Report data fetched uprn={} postcode={} epcAvailable={} priceHistoryCount={} floodRiskAvailable={} crimeStatsAvailable={}",
+        redactIdentifier(inputs.uprn()),
+        redactPostcode(inputs.postcode()),
+        epcData != null,
+        priceHistory == null ? 0 : priceHistory.size(),
+        isFloodRiskAvailable(floodRiskData),
+        isCrimeStatsAvailable(crimeStatsData));
     return new ReportData(epcData, priceHistory, floodRiskData, crimeStatsData);
   }
 
@@ -529,6 +633,28 @@ public class ReportController {
       return null;
     }
     return text.trim();
+  }
+
+  private String redactIdentifier(String value) {
+    if (value == null || value.isBlank()) {
+      return "missing";
+    }
+    String trimmed = value.trim();
+    if (trimmed.length() <= 4) {
+      return "****";
+    }
+    return "****" + trimmed.substring(trimmed.length() - 4);
+  }
+
+  private String redactPostcode(String postcode) {
+    if (postcode == null || postcode.isBlank()) {
+      return "missing";
+    }
+    String normalised = postcode.replaceAll("\\s+", "").toUpperCase();
+    if (normalised.length() <= 3) {
+      return "***";
+    }
+    return normalised.substring(0, Math.min(3, normalised.length())) + "***";
   }
 
   public record ReportInputs(

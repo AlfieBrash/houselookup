@@ -1,4 +1,6 @@
-﻿const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? "http://localhost:8081";
+import { parseApiError } from "@/lib/api-error";
+
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? "http://localhost:8081";
 
 export interface AuthMe {
   email: string;
@@ -11,8 +13,7 @@ export interface AuthRequest {
 }
 
 const parseError = async (response: Response) => {
-  const text = await response.text();
-  return text || "Authentication request failed.";
+  return parseApiError(response, "Authentication request failed.");
 };
 
 export async function registerUser(payload: AuthRequest): Promise<AuthMe> {

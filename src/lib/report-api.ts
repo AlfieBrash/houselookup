@@ -1,4 +1,5 @@
-﻿import { DataOptions } from "@/components/DataOptionsSelector";
+import { DataOptions } from "@/components/DataOptionsSelector";
+import { parseApiError } from "@/lib/api-error";
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? "http://localhost:8081";
 
@@ -49,8 +50,7 @@ export interface ReportPrepareResponse {
 }
 
 const parseErrorMessage = async (response: Response) => {
-  const text = await response.text();
-  return text || "The report generator had a temporary issue. Please try again shortly.";
+  return parseApiError(response, "The report generator had a temporary issue. Please try again shortly.");
 };
 
 const toParams = (params: ReportParams, path = "/api/report/preview") => {

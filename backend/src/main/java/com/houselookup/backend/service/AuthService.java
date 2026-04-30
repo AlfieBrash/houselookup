@@ -6,6 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Locale;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class AuthService {
   private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+  private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
   private final UserRepository userRepository;
   private final SessionService sessionService;
@@ -39,6 +42,7 @@ public class AuthService {
     validatePassword(password);
 
     if (userRepository.findByEmailIgnoreCase(normalizedEmail).isPresent()) {
+      log.warn("Registration rejected because email already exists");
       throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists.");
     }
 
@@ -49,6 +53,7 @@ public class AuthService {
     String ip = extractClientIp(request);
     String userAgent = request.getHeader("User-Agent");
     sessionService.createSession(user.getId(), ip, userAgent, response);
+    log.info("User registered userId={} clientIp={}", user.getId(), ip);
     return user;
   }
 
@@ -57,21 +62,29 @@ public class AuthService {
     String normalizedEmail = normalizeEmail(email);
     validateEmail(normalizedEmail);
     if (password == null || password.isBlank()) {
+      log.warn("Login rejected because password was missing");
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password is required.");
     }
 
     User user =
         userRepository
             .findByEmailIgnoreCase(normalizedEmail)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials."));
+            .orElse(null);
+
+    if (user == null) {
+      log.warn("Login rejected because credentials were invalid");
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials.");
+    }
 
     if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+      log.warn("Login rejected because credentials were invalid");
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials.");
     }
 
     String ip = extractClientIp(request);
     String userAgent = request.getHeader("User-Agent");
     sessionService.createSession(user.getId(), ip, userAgent, response);
+    log.info("User logged in userId={} clientIp={}", user.getId(), ip);
     return user;
   }
 

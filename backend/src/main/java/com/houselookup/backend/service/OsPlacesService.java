@@ -6,6 +6,8 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
 public class OsPlacesService {
+  private static final Logger log = LoggerFactory.getLogger(OsPlacesService.class);
+
   private final RestTemplate restTemplate;
   private final String endpoint;
   private final String apiKey;
@@ -37,6 +41,7 @@ public class OsPlacesService {
     }
 
     if (apiKey == null || apiKey.isBlank()) {
+      log.warn("OS Places lookup rejected reason=api_key_missing postcode={}", redactPostcode(trimmed));
       throw new IllegalStateException(
           "OS Places API key missing. Set APP_OS_PLACES_API_KEY to enable lookup.");
     }
@@ -53,10 +58,20 @@ public class OsPlacesService {
       response = restTemplate.getForEntity(url, JsonNode.class);
     } catch (HttpClientErrorException.BadRequest badRequest) {
       String message = badRequest.getResponseBodyAsString();
+      log.warn(
+          "OS Places lookup rejected by upstream postcode={} upstreamStatus={} message={}",
+          redactPostcode(normalised),
+          badRequest.getStatusCode().value(),
+          message);
       throw new IllegalArgumentException(
           message == null || message.isBlank() ? "Invalid postcode for OS Places." : message,
           badRequest);
     } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.Forbidden authError) {
+      log.error(
+          "OS Places lookup failed reason=auth postcode={} upstreamStatus={}",
+          redactPostcode(normalised),
+          authError.getStatusCode().value(),
+          authError);
       throw new ResponseStatusException(
           HttpStatus.BAD_GATEWAY,
           "OS Places API key is invalid or lacks access to postcode lookups.",
@@ -64,6 +79,12 @@ public class OsPlacesService {
     } catch (HttpClientErrorException otherClientError) {
       String body = otherClientError.getResponseBodyAsString();
       String detail = body == null || body.isBlank() ? "No details available." : body;
+      log.error(
+          "OS Places lookup failed postcode={} upstreamStatus={} detail={}",
+          redactPostcode(normalised),
+          otherClientError.getStatusCode().value(),
+          detail,
+          otherClientError);
       throw new ResponseStatusException(
           HttpStatus.BAD_GATEWAY,
           "OS Places returned an error: "
@@ -74,6 +95,7 @@ public class OsPlacesService {
     }
     JsonNode root = response.getBody();
     if (root == null || !root.has("results")) {
+      log.info("OS Places lookup completed postcode={} resultCount=0", redactPostcode(normalised));
       return List.of();
     }
 
@@ -86,7 +108,22 @@ public class OsPlacesService {
       }
     }
 
+    log.info(
+        "OS Places lookup completed postcode={} resultCount={}",
+        redactPostcode(normalised),
+        addresses.size());
     return addresses;
+  }
+
+  private String redactPostcode(String postcode) {
+    if (postcode == null || postcode.isBlank()) {
+      return "missing";
+    }
+    String normalised = postcode.replaceAll("\\s+", "").toUpperCase();
+    if (normalised.length() <= 3) {
+      return "***";
+    }
+    return normalised.substring(0, Math.min(3, normalised.length())) + "***";
   }
 
   private Address buildAddress(JsonNode dpa, String fallbackPostcode) {

@@ -18,12 +18,16 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class PaymentService {
+  private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
+
   private static final String STATUS_CREATED = "CREATED";
   private static final String STATUS_SUCCEEDED = "SUCCEEDED";
   private static final String STRIPE_PROVIDER = "stripe";
@@ -64,10 +68,17 @@ public class PaymentService {
   @PostConstruct
   void init() {
     parsePackages();
+    log.info("Payment packs configured packs={} currency={}", availablePacks, currency);
     if (stripeSecretKey == null || stripeSecretKey.isBlank()) {
+      log.warn("Stripe checkout is not configured because STRIPE_SECRET_KEY is missing");
       return;
     }
     Stripe.apiKey = stripeSecretKey;
+    log.info(
+        "Stripe checkout configured frontendUrl={} successUrl={} cancelUrl={}",
+        frontendUrl,
+        successUrl,
+        cancelUrl);
   }
 
   public List<CreditPack> getCreditPacks() {
@@ -83,15 +94,27 @@ public class PaymentService {
   @Transactional
   public CheckoutSession createCheckout(long userId, int credits) {
     if (stripeSecretKey == null || stripeSecretKey.isBlank()) {
+      log.warn("Checkout rejected userId={} credits={} reason=stripe_not_configured", userId, credits);
       throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Stripe is not configured.");
     }
 
     if (credits <= 0 || !availablePacks.containsKey(credits)) {
+      log.warn("Checkout rejected userId={} credits={} reason=invalid_credit_pack", userId, credits);
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid credit pack.");
     }
 
-    User user = userRepository.findById(userId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found."));
+    User user = userRepository.findById(userId).orElse(null);
+    if (user == null) {
+      log.warn("Checkout rejected userId={} credits={} reason=user_not_found", userId, credits);
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found.");
+    }
     long amountCents = availablePacks.get(credits);
+    log.info(
+        "Creating Stripe checkout userId={} credits={} amountCents={} currency={}",
+        userId,
+        credits,
+        amountCents,
+        currency);
 
     SessionCreateParams.LineItem.PriceData.ProductData productData =
         SessionCreateParams.LineItem.PriceData.ProductData.builder()
@@ -148,29 +171,58 @@ public class PaymentService {
       tx.setIdempotencyKey(idempotencyKey);
       transactionRepository.save(tx);
 
+      log.info(
+          "Stripe checkout created userId={} transactionId={} providerSessionId={} credits={} amountCents={}",
+          userId,
+          tx.getId(),
+          providerSessionId,
+          credits,
+          amountCents);
       return new CheckoutSession(providerSessionId, session.getUrl(), credits, amountCents);
     } catch (StripeException e) {
+      log.error(
+          "Stripe checkout creation failed userId={} credits={} amountCents={} stripeStatus={} stripeCode={} stripeRequestId={} message={}",
+          userId,
+          credits,
+          amountCents,
+          e.getStatusCode(),
+          e.getCode(),
+          e.getRequestId(),
+          e.getMessage(),
+          e);
       throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to create checkout session.", e);
     }
   }
 
   @Transactional
   public void handleCheckoutSessionCompleted(String sessionId) {
+    log.info("Handling Stripe checkout completion providerSessionId={}", sessionId);
     PaymentTransaction tx =
         transactionRepository
             .findForUpdateByProviderSessionId(sessionId)
             .orElse(null);
 
     if (tx == null) {
+      log.warn("Stripe checkout completion ignored reason=transaction_not_found providerSessionId={}", sessionId);
       return;
     }
 
     if (STATUS_SUCCEEDED.equalsIgnoreCase(tx.getStatus())) {
+      log.info(
+          "Stripe checkout completion ignored reason=already_succeeded transactionId={} providerSessionId={}",
+          tx.getId(),
+          sessionId);
       return;
     }
 
     Session stripeSession = retrieveStripeSession(sessionId);
     if (!isPaidCheckoutSession(stripeSession)) {
+      log.warn(
+          "Stripe checkout completion ignored reason=session_not_paid transactionId={} providerSessionId={} stripeStatus={} stripePaymentStatus={}",
+          tx.getId(),
+          sessionId,
+          stripeSession == null ? null : stripeSession.getStatus(),
+          stripeSession == null ? null : stripeSession.getPaymentStatus());
       return;
     }
     validateStripeSessionMatchesTransaction(stripeSession, tx);
@@ -178,6 +230,12 @@ public class PaymentService {
     creditService.addCredits(tx.getUser().getId(), tx.getPackageSize());
     tx.setStatus(STATUS_SUCCEEDED);
     transactionRepository.save(tx);
+    log.info(
+        "Stripe checkout completed transactionId={} userId={} providerSessionId={} credits={}",
+        tx.getId(),
+        tx.getUser().getId(),
+        sessionId,
+        tx.getPackageSize());
   }
 
   @Transactional
@@ -189,18 +247,37 @@ public class PaymentService {
               if (!STATUS_SUCCEEDED.equalsIgnoreCase(tx.getStatus())) {
                 tx.setStatus("FAILED");
                 transactionRepository.save(tx);
+                log.info(
+                    "Stripe checkout marked failed transactionId={} userId={} providerSessionId={}",
+                    tx.getId(),
+                    tx.getUser().getId(),
+                    sessionId);
+              } else {
+                log.info(
+                    "Stripe checkout failure ignored reason=already_succeeded transactionId={} providerSessionId={}",
+                    tx.getId(),
+                    sessionId);
               }
             });
   }
 
   private Session retrieveStripeSession(String sessionId) {
     if (stripeSecretKey == null || stripeSecretKey.isBlank()) {
+      log.warn("Stripe checkout verification rejected providerSessionId={} reason=stripe_not_configured", sessionId);
       throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Stripe is not configured.");
     }
 
     try {
       return Session.retrieve(sessionId);
     } catch (StripeException e) {
+      log.error(
+          "Stripe checkout verification failed providerSessionId={} stripeStatus={} stripeCode={} stripeRequestId={} message={}",
+          sessionId,
+          e.getStatusCode(),
+          e.getCode(),
+          e.getRequestId(),
+          e.getMessage(),
+          e);
       throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not verify Stripe checkout session.", e);
     }
   }
@@ -213,11 +290,23 @@ public class PaymentService {
 
   private void validateStripeSessionMatchesTransaction(Session stripeSession, PaymentTransaction tx) {
     if (stripeSession.getAmountTotal() == null || !stripeSession.getAmountTotal().equals(tx.getAmountCents())) {
+      log.warn(
+          "Stripe checkout validation failed reason=amount_mismatch transactionId={} providerSessionId={} expectedAmountCents={} actualAmountCents={}",
+          tx.getId(),
+          tx.getProviderSessionId(),
+          tx.getAmountCents(),
+          stripeSession.getAmountTotal());
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Stripe checkout amount did not match.");
     }
 
     if (stripeSession.getCurrency() == null
         || !stripeSession.getCurrency().equalsIgnoreCase(tx.getCurrency())) {
+      log.warn(
+          "Stripe checkout validation failed reason=currency_mismatch transactionId={} providerSessionId={} expectedCurrency={} actualCurrency={}",
+          tx.getId(),
+          tx.getProviderSessionId(),
+          tx.getCurrency(),
+          stripeSession.getCurrency());
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Stripe checkout currency did not match.");
     }
 
@@ -225,6 +314,10 @@ public class PaymentService {
     if (metadata == null
         || !String.valueOf(tx.getUser().getId()).equals(metadata.get("userId"))
         || !String.valueOf(tx.getPackageSize()).equals(metadata.get("credits"))) {
+      log.warn(
+          "Stripe checkout validation failed reason=metadata_mismatch transactionId={} providerSessionId={}",
+          tx.getId(),
+          tx.getProviderSessionId());
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Stripe checkout metadata did not match.");
     }
   }
@@ -251,6 +344,7 @@ public class PaymentService {
       }
       String[] pair = entry.split(":", 2);
       if (pair.length != 2) {
+        log.warn("Payment package config entry ignored reason=invalid_format entry={}", entry);
         continue;
       }
       try {
@@ -258,9 +352,11 @@ public class PaymentService {
         long cents = Long.parseLong(pair[1].trim());
         if (credits > 0 && cents >= 0) {
           availablePacks.put(credits, cents);
+        } else {
+          log.warn("Payment package config entry ignored reason=invalid_value entry={}", entry);
         }
       } catch (NumberFormatException ignored) {
-        // ignore malformed entries
+        log.warn("Payment package config entry ignored reason=invalid_number entry={}", entry);
       }
     }
 
@@ -268,6 +364,7 @@ public class PaymentService {
       availablePacks.put(1, 199L);
       availablePacks.put(5, 899L);
       availablePacks.put(10, 1690L);
+      log.warn("Payment package config was empty or invalid; default packs were applied");
     }
   }
 

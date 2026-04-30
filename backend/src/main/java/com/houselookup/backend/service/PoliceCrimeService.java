@@ -9,6 +9,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
 public class PoliceCrimeService {
+  private static final Logger log = LoggerFactory.getLogger(PoliceCrimeService.class);
+
   private static final Map<String, String> CATEGORY_LABELS =
       Map.ofEntries(
           Map.entry("anti-social-behaviour", "Anti-social behaviour"),
@@ -52,12 +56,14 @@ public class PoliceCrimeService {
 
   public Map<String, Object> fetchAssessment(Double latitude, Double longitude) {
     if (latitude == null || longitude == null) {
+      log.warn("Crime assessment unavailable reason=missing_location");
       return unavailableAssessment("Crime data could not be assessed because location was missing.");
     }
 
     try {
       YearMonth latestMonth = fetchLatestAvailableMonth();
       if (latestMonth == null) {
+        log.warn("Crime assessment unavailable reason=latest_month_missing");
         return unavailableAssessment("Crime data is temporarily unavailable.");
       }
 
@@ -69,17 +75,34 @@ public class PoliceCrimeService {
           if (crimes != null && crimes.isArray()) {
             monthlyData.add(new MonthlyCrimeData(month, crimes));
           }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+          log.debug(
+              "Crime monthly lookup failed location={} month={}",
+              roundedLocation(latitude, longitude),
+              month,
+              e);
           // Keep any months that did return data instead of dropping the whole crime section.
         }
       }
       if (monthlyData.isEmpty()) {
+        log.warn("Crime assessment unavailable reason=no_monthly_data location={}", roundedLocation(latitude, longitude));
         return unavailableAssessment("Crime data is temporarily unavailable.");
       }
-      return parseAssessment(monthlyData, latitude, longitude);
-    } catch (Exception ignored) {
+      Map<String, Object> assessment = parseAssessment(monthlyData, latitude, longitude);
+      log.info(
+          "Crime assessment completed location={} reportingMonths={} totalCrimes={}",
+          roundedLocation(latitude, longitude),
+          assessment.get("reportingMonths"),
+          assessment.get("totalCrimes"));
+      return assessment;
+    } catch (Exception e) {
+      log.warn("Crime assessment failed location={}", roundedLocation(latitude, longitude), e);
       return unavailableAssessment("Crime data is temporarily unavailable.");
     }
+  }
+
+  private String roundedLocation(Double latitude, Double longitude) {
+    return String.format(Locale.ROOT, "%.3f,%.3f", latitude, longitude);
   }
 
   private JsonNode fetchCrimes(Double latitude, Double longitude, YearMonth month) {

@@ -1,4 +1,6 @@
-﻿const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? "http://localhost:8081";
+import { parseApiError } from "@/lib/api-error";
+
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? "http://localhost:8081";
 
 export interface CreditPack {
   credits: number;
@@ -18,8 +20,7 @@ export interface CreditBalanceResponse {
 }
 
 const parseError = async (response: Response) => {
-  const text = await response.text();
-  return text || "Could not start checkout.";
+  return parseApiError(response, "Could not start checkout.");
 };
 
 export async function getPricing(): Promise<CreditPack[]> {

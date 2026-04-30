@@ -10,11 +10,15 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ReportTokenService {
+  private static final Logger log = LoggerFactory.getLogger(ReportTokenService.class);
+
   private static final String STATUS_PENDING = "PENDING";
   private static final String STATUS_PROCESSING = "PROCESSING";
   private static final String STATUS_COMPLETED = "COMPLETED";
@@ -40,9 +44,15 @@ public class ReportTokenService {
       Instant expiry = Instant.now().plus(tokenTtlMinutes, ChronoUnit.MINUTES);
       ReportDownloadToken tokenEntity =
           new ReportDownloadToken(user, tokenHash, payloadJson, STATUS_PENDING, expiry);
-      tokenRepository.save(tokenEntity);
+      tokenEntity = tokenRepository.save(tokenEntity);
+      log.info(
+          "Report download token created tokenId={} userId={} expiresAt={}",
+          tokenEntity.getId(),
+          user.getId(),
+          expiry);
       return token;
     } catch (JsonProcessingException e) {
+      log.error("Report download token creation failed userId={}", user.getId(), e);
       throw new IllegalStateException("Could not create report token.");
     }
   }
@@ -52,6 +62,7 @@ public class ReportTokenService {
     try {
       return objectMapper.readValue(payloadJson, Map.class);
     } catch (JsonProcessingException e) {
+      log.error("Report download token payload parsing failed", e);
       throw new IllegalStateException("Could not read report token payload.");
     }
   }
@@ -62,20 +73,37 @@ public class ReportTokenService {
     ReportDownloadToken record =
         tokenRepository
             .findByTokenHash(hash)
-            .orElseThrow(() -> new IllegalArgumentException("Download token not found."));
+            .orElseThrow(
+                () -> {
+                  log.warn("Report download token claim rejected reason=not_found");
+                  return new IllegalArgumentException("Download token not found.");
+                });
 
     if (record.getExpiresAt().isBefore(Instant.now())) {
       if (!STATUS_FAILED.equals(record.getStatus())) {
         record.setStatus("EXPIRED");
       }
+      log.warn(
+          "Report download token claim rejected reason=expired tokenId={} userId={}",
+          record.getId(),
+          record.getUser().getId());
       throw new IllegalArgumentException("Download token expired.");
     }
 
     if (!STATUS_PENDING.equals(record.getStatus())) {
+      log.warn(
+          "Report download token claim rejected reason=already_used tokenId={} userId={} status={}",
+          record.getId(),
+          record.getUser().getId(),
+          record.getStatus());
       throw new IllegalStateException("Download token already used.");
     }
 
     record.setStatus(STATUS_PROCESSING);
+    log.info(
+        "Report download token claimed tokenId={} userId={}",
+        record.getId(),
+        record.getUser().getId());
     return record;
   }
 
@@ -84,6 +112,10 @@ public class ReportTokenService {
     token.setStatus(STATUS_COMPLETED);
     token.setUsedAt(Instant.now());
     tokenRepository.save(token);
+    log.info(
+        "Report download token completed tokenId={} userId={}",
+        token.getId(),
+        token.getUser().getId());
   }
 
   @Transactional
@@ -91,6 +123,11 @@ public class ReportTokenService {
     token.setStatus(STATUS_FAILED);
     token.setErrorMessage(error);
     tokenRepository.save(token);
+    log.warn(
+        "Report download token failed tokenId={} userId={} error={}",
+        token.getId(),
+        token.getUser().getId(),
+        error);
   }
 
   public String getStatusFailed() {

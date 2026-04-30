@@ -14,6 +14,8 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,6 +27,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/payments")
 public class PaymentController {
+  private static final Logger log = LoggerFactory.getLogger(PaymentController.class);
+
   private final PaymentService paymentService;
   private final AuthService authService;
   private final CreditService creditService;
@@ -49,6 +53,7 @@ public class PaymentController {
   @PostMapping("/checkout")
   public CheckoutResponse createCheckout(@RequestBody CheckoutRequest request, HttpServletRequest httpRequest) {
     if (request == null || request.credits() <= 0) {
+      log.warn("Checkout request rejected reason=invalid_request");
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid checkout request.");
     }
     User user = authService.requireUser(httpRequest);
@@ -59,14 +64,17 @@ public class PaymentController {
   @PostMapping("/dev-topup")
   public CreditResponse createDevTopup(@RequestBody CheckoutRequest request, HttpServletRequest httpRequest) {
     if (!devTopupEnabled) {
+      log.warn("Developer top-up rejected reason=disabled");
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Developer top-up is disabled.");
     }
     if (request == null || !paymentService.isValidCreditPack(request.credits())) {
+      log.warn("Developer top-up rejected reason=invalid_credit_pack credits={}", request == null ? null : request.credits());
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid credit pack.");
     }
 
     User user = authService.requireUser(httpRequest);
     creditService.addCredits(user.getId(), request.credits());
+    log.info("Developer top-up applied userId={} credits={}", user.getId(), request.credits());
     return new CreditResponse(creditService.getBalance(user.getId()));
   }
 
@@ -76,8 +84,10 @@ public class PaymentController {
     try {
       Event event = Webhook.constructEvent(payload, signatureHeader, webhookSecret);
       String sessionId = extractCheckoutSessionId(event);
+      log.info("Stripe webhook received eventType={} providerSessionId={}", event.getType(), sessionId);
 
       if (sessionId == null) {
+        log.info("Stripe webhook ignored reason=no_checkout_session eventType={}", event.getType());
         return ResponseEntity.ok().build();
       }
 
@@ -90,10 +100,12 @@ public class PaymentController {
 
       return ResponseEntity.ok().build();
     } catch (SignatureVerificationException e) {
+      log.warn("Stripe webhook rejected reason=invalid_signature");
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid webhook signature.");
     } catch (ResponseStatusException e) {
       throw e;
     } catch (RuntimeException e) {
+      log.warn("Stripe webhook rejected reason=malformed_payload", e);
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Malformed webhook payload.", e);
     }
   }

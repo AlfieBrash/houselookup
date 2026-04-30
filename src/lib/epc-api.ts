@@ -1,3 +1,5 @@
+import { parseApiError } from "@/lib/api-error";
+
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? "http://localhost:8081";
 
 export interface EpcCertificate {
@@ -45,8 +47,7 @@ export interface EpcCertificate {
 }
 
 const parseErrorMessage = async (response: Response) => {
-  const text = await response.text();
-  return text || "Failed to fetch EPC data. Please try again.";
+  return parseApiError(response, "Failed to fetch EPC data. Please try again.");
 };
 
 export async function fetchEpcByUprn(uprn: string): Promise<EpcCertificate | null> {

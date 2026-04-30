@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -19,6 +21,7 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class LandRegistryService {
   private static final String SPARQL_ENDPOINT = "https://landregistry.data.gov.uk/landregistry/query";
+  private static final Logger log = LoggerFactory.getLogger(LandRegistryService.class);
 
   private final RestTemplate restTemplate;
   private final ObjectMapper objectMapper;
@@ -49,11 +52,33 @@ public class LandRegistryService {
       ResponseEntity<JsonNode> response =
           restTemplate.exchange(SPARQL_ENDPOINT, HttpMethod.POST, entity, JsonNode.class);
 
-      return parseResults(response.getBody());
+      List<Map<String, Object>> results = parseResults(response.getBody());
+      log.info(
+          "Land Registry lookup completed postcode={} paonProvided={} resultCount={}",
+          redactPostcode(postcode),
+          paon != null && !paon.isBlank(),
+          results.size());
+      return results;
     } catch (Exception e) {
+      log.warn(
+          "Land Registry lookup failed postcode={} paonProvided={}",
+          redactPostcode(postcode),
+          paon != null && !paon.isBlank(),
+          e);
       // Return empty list on error - price history is supplementary data
       return new ArrayList<>();
     }
+  }
+
+  private String redactPostcode(String postcode) {
+    if (postcode == null || postcode.isBlank()) {
+      return "missing";
+    }
+    String normalised = postcode.replaceAll("\\s+", "").toUpperCase();
+    if (normalised.length() <= 3) {
+      return "***";
+    }
+    return normalised.substring(0, Math.min(3, normalised.length())) + "***";
   }
 
   private String buildSparqlQuery(String postcode, String paon) {

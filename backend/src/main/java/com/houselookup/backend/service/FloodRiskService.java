@@ -5,6 +5,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -13,6 +16,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
 public class FloodRiskService {
+  private static final Logger log = LoggerFactory.getLogger(FloodRiskService.class);
+
   private final RestTemplate restTemplate;
   private final String endpoint;
   private final int searchRadiusKm;
@@ -28,6 +33,7 @@ public class FloodRiskService {
 
   public Map<String, Object> fetchAssessment(Double latitude, Double longitude) {
     if (latitude == null || longitude == null) {
+      log.warn("Flood risk assessment unavailable reason=missing_location");
       return unavailableAssessment("Flood risk could not be assessed because location was missing.");
     }
 
@@ -41,10 +47,21 @@ public class FloodRiskService {
 
     try {
       ResponseEntity<JsonNode> response = restTemplate.getForEntity(url, JsonNode.class);
-      return parseAssessment(response.getBody(), latitude, longitude);
-    } catch (Exception ignored) {
+      Map<String, Object> assessment = parseAssessment(response.getBody(), latitude, longitude);
+      log.info(
+          "Flood risk assessment completed location={} available={} activeWarningCount={}",
+          roundedLocation(latitude, longitude),
+          assessment.get("available"),
+          assessment.get("activeWarningCount"));
+      return assessment;
+    } catch (Exception e) {
+      log.warn("Flood risk assessment failed location={}", roundedLocation(latitude, longitude), e);
       return unavailableAssessment("Flood risk data is temporarily unavailable.");
     }
+  }
+
+  private String roundedLocation(Double latitude, Double longitude) {
+    return String.format(Locale.ROOT, "%.3f,%.3f", latitude, longitude);
   }
 
   private Map<String, Object> parseAssessment(

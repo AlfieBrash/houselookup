@@ -36,16 +36,27 @@ public class AddressController {
     } catch (ResponseStatusException upstreamError) {
       throw upstreamError;
     } catch (IllegalArgumentException badRequest) {
-      log.warn("Address lookup bad request for postcode={}", postcode, badRequest);
+      log.warn("Address lookup bad request postcode={}", redactPostcode(postcode), badRequest);
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, badRequest.getMessage(), badRequest);
     } catch (IllegalStateException serverError) {
-      log.error("Address lookup service error for postcode={}", postcode, serverError);
+      log.error("Address lookup service error postcode={}", redactPostcode(postcode), serverError);
       throw new ResponseStatusException(
           HttpStatus.INTERNAL_SERVER_ERROR, serverError.getMessage(), serverError);
     } catch (Exception unexpected) {
-      log.error("Unexpected error looking up addresses for postcode={}", postcode, unexpected);
+      log.error("Unexpected error looking up addresses postcode={}", redactPostcode(postcode), unexpected);
       throw new ResponseStatusException(
           HttpStatus.INTERNAL_SERVER_ERROR, "Address lookup failed.", unexpected);
     }
+  }
+
+  private String redactPostcode(String postcode) {
+    if (postcode == null || postcode.isBlank()) {
+      return "missing";
+    }
+    String normalised = postcode.replaceAll("\\s+", "").toUpperCase();
+    if (normalised.length() <= 3) {
+      return "***";
+    }
+    return normalised.substring(0, Math.min(3, normalised.length())) + "***";
   }
 }

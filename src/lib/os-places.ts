@@ -1,4 +1,5 @@
 import type { Address } from "@/components/AddressSelector";
+import { parseApiError } from "@/lib/api-error";
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? "http://localhost:8081";
 
@@ -33,8 +34,7 @@ interface AddressLookupOptions {
 }
 
 const parseErrorMessage = async (response: Response) => {
-  const text = await response.text();
-  return text || "The address service seems to have wandered off. Terribly sorry - do give it another go.";
+  return parseApiError(response, "The address service is temporarily unavailable. Please try again.");
 };
 
 const normalisePostcode = (postcode: string) => postcode.replace(/\s+/g, "").toUpperCase();
