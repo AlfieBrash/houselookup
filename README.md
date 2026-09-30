@@ -6,6 +6,8 @@
 
 Property Pal is for anybody looking to rent or buy a house in the UK. It provides a rapid sanity check on the important things about a property. The idea of this tool is to highlight the red flags long before the point of paying for a property report.  
 
+## Demo
+<img width="1907" height="943" alt="Property Pal Demo" src="https://github.com/user-attachments/assets/33e9c9b7-68db-4a29-b8d5-41b193210e77" />
 
 ## Web service checks
 
