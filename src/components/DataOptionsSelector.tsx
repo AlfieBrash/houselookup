@@ -150,6 +150,7 @@ export function DataOptionsSelector({
               return (
                 <div
                   key={option.id}
+                  data-testid={`report-data-${option.id}`}
                   className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
                     previewLoading || !preview
                       ? "border-border bg-muted/30"
@@ -231,7 +232,7 @@ export function DataOptionsSelector({
         </div>
 
         {(previewError || error) && (
-          <div className="error-inline fade-in flex items-start gap-2">
+          <div data-testid="report-preview-error" className="error-inline fade-in flex items-start gap-2">
             <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
             <span>{error || previewError}</span>
           </div>

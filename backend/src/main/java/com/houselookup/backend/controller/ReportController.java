@@ -403,7 +403,11 @@ public class ReportController {
   private ReportData fetchReportData(ReportInputs inputs) {
     Map<String, Object> epcData = null;
     if (inputs.includeEpc()) {
-      epcData = epcService.fetchByUprn(inputs.uprn()).orElse(null);
+      try {
+        epcData = epcService.fetchByUprn(inputs.uprn()).orElse(null);
+      } catch (RuntimeException e) {
+        log.warn("EPC lookup skipped after failure uprn={}", redactIdentifier(inputs.uprn()), e);
+      }
     }
 
     List<Map<String, Object>> priceHistory = List.of();
